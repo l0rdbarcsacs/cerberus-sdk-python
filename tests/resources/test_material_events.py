@@ -84,6 +84,22 @@ class TestSyncMaterialEventsResource:
         assert result == [{"id": "evtC"}]
         assert route.called
 
+    def test_list_rejects_naive_datetime_since(self, sync_client: CerberusClient) -> None:
+        resource = MaterialEventsResource(sync_client)
+        with pytest.raises(ValueError, match="timezone-aware"):
+            resource.list(since=datetime(2026, 1, 1))
+
+    def test_list_rejects_naive_datetime_until(self, sync_client: CerberusClient) -> None:
+        resource = MaterialEventsResource(sync_client)
+        with pytest.raises(ValueError, match="timezone-aware"):
+            resource.list(until=datetime(2026, 4, 1))
+
+    def test_iter_all_rejects_naive_datetime(self, sync_client: CerberusClient) -> None:
+        resource = MaterialEventsResource(sync_client)
+        with pytest.raises(ValueError, match="timezone-aware"):
+            # `iter_all` is a generator factory — must iterate to trigger coercion.
+            next(resource.iter_all(since=datetime(2026, 1, 1)))
+
     def test_list_with_limit(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:

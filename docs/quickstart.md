@@ -64,8 +64,10 @@ with CerberusClient(api_key=os.environ["CERBERUS_API_KEY"]) as client:
         print(f"API error {exc.status}: {exc.title} (request_id={exc.request_id})")
         raise
 
-    entity = response["data"][0]
-    print(entity["legal_name"])
+    entities = response.get("data") or []
+    if not entities:
+        raise SystemExit("no entity matched that RUT")
+    print(entities[0]["legal_name"])
 ```
 
 What to notice:
@@ -97,7 +99,10 @@ async def main() -> None:
             print(f"API error {exc.status}: {exc.title}")
             raise
 
-        print(response["data"][0]["legal_name"])
+        entities = response.get("data") or []
+        if not entities:
+            raise SystemExit("no entity matched that RUT")
+        print(entities[0]["legal_name"])
 
 asyncio.run(main())
 ```

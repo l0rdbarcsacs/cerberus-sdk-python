@@ -33,12 +33,19 @@ def _coerce_params(raw: dict[str, Any] | None) -> dict[str, Any] | None:
     inputs, returns a fresh dict where any :class:`datetime.datetime` value is
     replaced by ``value.isoformat()``; other value types pass through
     untouched.
+
+    Naive datetimes (``tzinfo is None``) are rejected with ``ValueError`` —
+    per the Cerberus workspace standard all timestamps crossing the API
+    boundary must be timezone-aware to prevent silent drift between
+    ``America/Santiago`` wall-clock and UTC.
     """
     if not raw:
         return None
     coerced: dict[str, Any] = {}
     for key, value in raw.items():
         if isinstance(value, datetime):
+            if value.tzinfo is None:
+                raise ValueError(f"{key!r} must be a timezone-aware datetime; got naive {value!r}")
             coerced[key] = value.isoformat()
         else:
             coerced[key] = value
