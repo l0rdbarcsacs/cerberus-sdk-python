@@ -183,11 +183,25 @@ class TestStagingNormativa:
 
 
 class TestStagingNormativaConsulta:
+    # The /normativa-consulta endpoint ships in backend PR #45
+    # (feat/p52-new-ingestors). Until that PR is merged AND deployed to
+    # staging, every call to this surface returns a 404 for the route
+    # itself (not an empty list). We mark the class xfail(strict=False)
+    # so CI stays green during the rc1 window; once the backend lands,
+    # these will start passing — at which point we drop the decorator.
+    @pytest.mark.xfail(
+        reason="Requires backend PR #45 (feat/p52-new-ingestors) deployed to staging",
+        strict=False,
+    )
     def test_list_abierta(self, staging_client: CerberusClient) -> None:
         """Default ``estado='abierta'`` must return a list (possibly empty)."""
         rows = staging_client.normativa_consulta.list(limit=5)
         assert isinstance(rows, list)
 
+    @pytest.mark.xfail(
+        reason="Requires backend PR #45 (feat/p52-new-ingestors) deployed to staging",
+        strict=False,
+    )
     def test_list_cerrada(self, staging_client: CerberusClient) -> None:
         rows = staging_client.normativa_consulta.list(estado="cerrada", limit=5)
         assert isinstance(rows, list)
