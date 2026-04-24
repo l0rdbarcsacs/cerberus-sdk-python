@@ -178,6 +178,65 @@ class TestStagingNormativa:
 
 
 # ---------------------------------------------------------------------------
+# Normativa en Consulta (v0.3.0 G9)
+# ---------------------------------------------------------------------------
+
+
+class TestStagingNormativaConsulta:
+    def test_list_abierta(self, staging_client: CerberusClient) -> None:
+        """Default ``estado='abierta'`` must return a list (possibly empty)."""
+        rows = staging_client.normativa_consulta.list(limit=5)
+        assert isinstance(rows, list)
+
+    def test_list_cerrada(self, staging_client: CerberusClient) -> None:
+        rows = staging_client.normativa_consulta.list(estado="cerrada", limit=5)
+        assert isinstance(rows, list)
+
+
+# ---------------------------------------------------------------------------
+# Indicadores (v0.3.0 G8)
+# ---------------------------------------------------------------------------
+
+
+class TestStagingIndicadores:
+    def test_get_uf_latest(self, staging_client: CerberusClient) -> None:
+        """Latest UF must come back as a dict with a string ``value``.
+
+        We do not assert a specific value (UF changes daily); we assert the
+        plumbing is real and the payload shape matches the documented
+        schema.
+        """
+        try:
+            uf = staging_client.indicadores.get("UF")
+        except NotFoundError:
+            pytest.xfail("no UF value in current staging corpus")
+        assert isinstance(uf, dict)
+        assert "value" in uf
+
+    def test_get_uf_on_pinned_date(self, staging_client: CerberusClient) -> None:
+        """Point-in-time lookup against the deep-research snapshot date."""
+        try:
+            uf = staging_client.indicadores.get("UF", date="2026-04-24")
+        except NotFoundError:
+            pytest.xfail("UF not seeded for 2026-04-24 in current staging corpus")
+        assert isinstance(uf, dict)
+
+    def test_history_short_range(self, staging_client: CerberusClient) -> None:
+        """Historical range transformation + unwrap must produce a list.
+
+        The list may be empty on a sparse staging corpus — we only verify
+        the SDK contract, not the server corpus.
+        """
+        try:
+            series = staging_client.indicadores.history(
+                "UF", from_="2026-04-01", to="2026-04-30"
+            )
+        except (NotFoundError, CerberusAPIError):
+            pytest.xfail("staging indicadores history not populated")
+        assert isinstance(series, list)
+
+
+# ---------------------------------------------------------------------------
 # Persons
 # ---------------------------------------------------------------------------
 

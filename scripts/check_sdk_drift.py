@@ -96,6 +96,14 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/normativa"): ("normativa", "list"),
     ("GET", "/normativa/{regulation_id}"): ("normativa", "get"),
     ("GET", "/normativa/{regulation_id}/mercado"): ("normativa", "mercado"),
+    # /normativa-consulta (P5.2 G9 — early-warning regulatory consultations)
+    ("GET", "/normativa-consulta"): ("normativa_consulta", "list"),
+    # /indicadores (P5.2 G8 — CMF Indicadores API v3 proxy: UF/UTM/USD/EUR/IPC/TMC).
+    # The server exposes a single ``{name}`` path template for both the
+    # single-date lookup (``?date=``) and the historical range
+    # (``?periodo=``); the SDK splits that into ``get()`` + ``history()``
+    # but both land on the same OpenAPI entry.
+    ("GET", "/indicadores/{name}"): ("indicadores", "get"),
 }
 """Keep in sync with :mod:`cerberus_compliance.resources` — one entry per
 endpoint + SDK method pair the SDK intends to wrap. Path-template variable

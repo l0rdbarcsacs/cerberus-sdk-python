@@ -34,25 +34,25 @@ from cerberus_compliance.resources.entities import (
     AsyncEntitiesResource,
     EntitiesResource,
 )
+from cerberus_compliance.resources.indicadores import (
+    AsyncIndicadoresResource,
+    IndicadoresResource,
+)
 from cerberus_compliance.resources.kyb import (
     AsyncKYBResource,
     KYBResource,
-)
-from cerberus_compliance.resources.material_events import (
-    AsyncMaterialEventsResource,
-    MaterialEventsResource,
 )
 from cerberus_compliance.resources.normativa import (
     AsyncNormativaResource,
     NormativaResource,
 )
+from cerberus_compliance.resources.normativa_consulta import (
+    AsyncNormativaConsultaResource,
+    NormativaConsultaResource,
+)
 from cerberus_compliance.resources.persons import (
     AsyncPersonsResource,
     PersonsResource,
-)
-from cerberus_compliance.resources.registries import (
-    AsyncRegistriesResource,
-    RegistriesResource,
 )
 from cerberus_compliance.resources.regulations import (
     AsyncRegulationsResource,
@@ -159,14 +159,14 @@ class CerberusClient:
     timeout: float
     retry: RetryConfig
     entities: EntitiesResource
+    indicadores: IndicadoresResource
     kyb: KYBResource
     normativa: NormativaResource
+    normativa_consulta: NormativaConsultaResource
     persons: PersonsResource
     rpsf: RPSFResource
     sanctions: SanctionsResource
-    registries: RegistriesResource
     regulations: RegulationsResource
-    material_events: MaterialEventsResource
 
     def __init__(
         self,
@@ -203,12 +203,12 @@ class CerberusClient:
         self.entities = EntitiesResource(self)
         self.kyb = KYBResource(self)
         self.persons = PersonsResource(self)
-        self.material_events = MaterialEventsResource(self)
         self.sanctions = SanctionsResource(self)
-        self.registries = RegistriesResource(self)
         self.regulations = RegulationsResource(self)
         self.rpsf = RPSFResource(self)
         self.normativa = NormativaResource(self)
+        self.normativa_consulta = NormativaConsultaResource(self)
+        self.indicadores = IndicadoresResource(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
@@ -332,14 +332,14 @@ class AsyncCerberusClient:
     timeout: float
     retry: RetryConfig
     entities: AsyncEntitiesResource
+    indicadores: AsyncIndicadoresResource
     kyb: AsyncKYBResource
     normativa: AsyncNormativaResource
+    normativa_consulta: AsyncNormativaConsultaResource
     persons: AsyncPersonsResource
     rpsf: AsyncRPSFResource
     sanctions: AsyncSanctionsResource
-    registries: AsyncRegistriesResource
     regulations: AsyncRegulationsResource
-    material_events: AsyncMaterialEventsResource
 
     def __init__(
         self,
@@ -369,12 +369,12 @@ class AsyncCerberusClient:
         self.entities = AsyncEntitiesResource(self)
         self.kyb = AsyncKYBResource(self)
         self.persons = AsyncPersonsResource(self)
-        self.material_events = AsyncMaterialEventsResource(self)
         self.sanctions = AsyncSanctionsResource(self)
-        self.registries = AsyncRegistriesResource(self)
         self.regulations = AsyncRegulationsResource(self)
         self.rpsf = AsyncRPSFResource(self)
         self.normativa = AsyncNormativaResource(self)
+        self.normativa_consulta = AsyncNormativaConsultaResource(self)
+        self.indicadores = AsyncIndicadoresResource(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
