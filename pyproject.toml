@@ -150,8 +150,13 @@ ignore = [
 # not a lingering debug statement. Suppressing the `T20` category keeps the
 # example bodies copy-paste-ready without `# noqa` comments sprinkled on every
 # line. Also allow `typing.Any` inside examples: design partners read these as
-# flat scripts, not strictly-typed library code.
+# flat scripts, not strictly-typed library code. Notebooks are documentation
+# with inline output — they need every rule the scripts get, plus a few more
+# that make sense for narrative code (unused imports from pprint/datetime,
+# hardcoded RUTs as string literals, f-strings without interpolation in
+# section headers, etc).
 "examples/**/*.py" = ["T201", "T203"]
+"examples/notebooks/**/*.ipynb" = ["T201", "T203", "F401", "F541", "E402", "E501", "E702", "B007"]
 
 [tool.mypy]
 python_version = "3.10"
