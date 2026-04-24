@@ -25,7 +25,6 @@ This example shows:
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from collections import Counter
 from typing import Any
@@ -103,7 +102,3 @@ if __name__ == "__main__":
 
 
 __all__ = ["main"]
-
-# Documents the expected env var — kept out of the function body so the
-# example reads top-down.
-_ = os.environ.get("CERBERUS_API_KEY")

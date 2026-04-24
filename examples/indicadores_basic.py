@@ -22,7 +22,6 @@ This example walks through:
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from decimal import Decimal
 from typing import Any
@@ -117,7 +116,3 @@ if __name__ == "__main__":
 
 
 __all__ = ["main"]  # re-exported for notebook callers; keep linted.
-
-# The env-lookup below is intentionally a no-op that documents the expected
-# env var — kept out of the function body so the example reads top-down.
-_ = os.environ.get("CERBERUS_API_KEY")
