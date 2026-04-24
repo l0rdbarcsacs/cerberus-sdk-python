@@ -146,6 +146,12 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["B011", "PT011"]
+# Examples are runnable CLI scripts — `print()` is the documented output path,
+# not a lingering debug statement. Suppressing the `T20` category keeps the
+# example bodies copy-paste-ready without `# noqa` comments sprinkled on every
+# line. Also allow `typing.Any` inside examples: design partners read these as
+# flat scripts, not strictly-typed library code.
+"examples/**/*.py" = ["T201", "T203"]
 
 [tool.mypy]
 python_version = "3.10"

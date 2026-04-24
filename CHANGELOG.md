@@ -5,6 +5,43 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation
+
+- **README rewrite.** Added a "What problem does it solve?" intro,
+  a resource-at-a-glance table covering every v0.2.0 endpoint, a flagship
+  "KYB Express" section with a real (trimmed) prod response shape,
+  tier / scope / rate-limit guidance, per-exception handling recipes,
+  cursor-pagination idioms, an examples index table, and an explicit
+  deprecation migration table for `persons.list/get`, `registries.*`,
+  and `material_events.*`.
+- **New runnable examples (9).** `entities_lookup.py`,
+  `sanctions_browse.py`, `regulations_search.py`, `rpsf_explore.py`,
+  `normativa_explore.py`, `persons_profile.py`,
+  `async_concurrent_lookups.py`, `error_handling.py`, and
+  `cursor_pagination.py`. Each is verified against prod with a
+  `professional`-tier key; each ships the standard
+  `Runnable:` / `Tier required:` / `Expected runtime:` docstring block
+  and can be invoked with zero arguments.
+- **Existing examples modernised.**
+  - `kyb_quickstart.py` now defaults `--rut` to `96.505.760-9` so it runs
+    out of the box (ergonomics + release-gate friendliness).
+  - `monitor_portfolio.py` rewritten to use `client.kyb.get(rut,
+    include=["material_events"])` + diff `recent_material_events` instead
+    of the fictional `/entities/{id}/material_events`; `--csv` is now
+    optional and the script runs a one-tick demo against a built-in
+    5-RUT sample portfolio when omitted.
+  - `webhook_handler.py` exits cleanly (0) with a setup hint when
+    `CERBERUS_WEBHOOK_SECRET` / `fastapi` / `uvicorn` are missing,
+    instead of hanging uvicorn under a missing secret.
+
+### Chore
+
+- `pyproject.toml`: `tool.ruff.lint.per-file-ignores` now exempts
+  `examples/**/*.py` from `T201`/`T203` — example CLIs print to stdout
+  by design.
+
 ## [v0.2.0] — 2026-04-24
 
 Track-to-prod overhaul. Closes the 10 gaps identified in the P5 endpoint

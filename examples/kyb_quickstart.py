@@ -1,5 +1,9 @@
 """KYB (Know Your Business) quickstart for the Cerberus Compliance SDK.
 
+Runnable: ``CERBERUS_API_KEY=<your-key> python examples/kyb_quickstart.py``
+Tier required: ``professional`` (scope ``kyb:read``).
+Expected runtime: ~300 ms.
+
 Given a Chilean tax id (RUT), call the flagship aggregate endpoint
 (``GET /v1/kyb/{rut}``) to retrieve a consolidated profile:
 
@@ -10,7 +14,11 @@ Given a Chilean tax id (RUT), call the flagship aggregate endpoint
 
 Usage::
 
+    # Zero-args run — uses the seed demo RUT (96.505.760-9 = Falabella SA):
     export CERBERUS_API_KEY=ck_live_...
+    python examples/kyb_quickstart.py
+
+    # Or specify a RUT explicitly:
     python examples/kyb_quickstart.py --rut 96.505.760-9
 
     # Ask for a richer bundle:
@@ -70,8 +78,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--rut",
-        required=True,
-        help="Chilean tax id (RUT) to resolve, e.g. 96.505.760-9.",
+        default="96.505.760-9",
+        help=(
+            "Chilean tax id (RUT) to resolve. Defaults to 96.505.760-9 (Falabella SA) "
+            "so the example runs out of the box for design partners."
+        ),
     )
     parser.add_argument(
         "--base-url",
@@ -247,7 +258,7 @@ def _render_plain(profile: dict[str, Any]) -> None:
             lines.append(f"  [{date_}] ({category}) {title}")
 
     lines.append("=" * 72)
-    print("\n".join(lines))  # noqa: T201 - example CLI output
+    print("\n".join(lines))
 
 
 def render_summary(profile: dict[str, Any]) -> None:
@@ -316,7 +327,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _fail(message: str) -> int:
     """Print ``message`` to stderr and return exit code 1."""
-    print(f"error: {message}", file=sys.stderr)  # noqa: T201 - example CLI output
+    print(f"error: {message}", file=sys.stderr)
     return 1
 
 
