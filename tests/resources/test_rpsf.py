@@ -185,3 +185,44 @@ class TestRPSFDefensiveEnvelopeHandling:
         )
         resource = AsyncRPSFResource(async_client)
         assert await resource.by_servicio("x") == []
+
+    # -----------------------------------------------------------------
+    # Prod-shape envelope ({items: ...}) must unwrap transparently via
+    # the shared BaseResource._extract_items helper.
+    # -----------------------------------------------------------------
+
+    def test_sync_by_entity_accepts_items_envelope(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/rpsf/by-entity/ent_7").mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "rpsf_items_1"}]})
+        )
+        resource = RPSFResource(sync_client)
+        assert resource.by_entity("ent_7") == [{"id": "rpsf_items_1"}]
+
+    def test_sync_by_servicio_accepts_items_envelope(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/rpsf/by-servicio/agente").mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "rpsf_items_2"}]})
+        )
+        resource = RPSFResource(sync_client)
+        assert resource.by_servicio("agente") == [{"id": "rpsf_items_2"}]
+
+    async def test_async_by_entity_accepts_items_envelope(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/rpsf/by-entity/ent_1").mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "rpsf_items_3"}]})
+        )
+        resource = AsyncRPSFResource(async_client)
+        assert await resource.by_entity("ent_1") == [{"id": "rpsf_items_3"}]
+
+    async def test_async_by_servicio_accepts_items_envelope(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/rpsf/by-servicio/agente").mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "rpsf_items_4"}]})
+        )
+        resource = AsyncRPSFResource(async_client)
+        assert await resource.by_servicio("agente") == [{"id": "rpsf_items_4"}]

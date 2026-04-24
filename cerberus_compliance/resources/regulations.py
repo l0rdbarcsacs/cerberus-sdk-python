@@ -83,17 +83,16 @@ class RegulationsResource(BaseResource):
     def search(self, q: str, **params: Any) -> builtins.list[dict[str, Any]]:
         """Full-text search of regulation records.
 
-        Issues ``GET /regulations/search?q=<q>`` and returns the
-        ``data`` array. Extra ``**params`` (e.g. ``framework``,
-        ``limit``) are forwarded verbatim; ``None`` values are stripped.
+        Issues ``GET /regulations/search?q=<q>`` and unwraps the
+        envelope via :meth:`BaseResource._extract_items` so both
+        ``{"data": [...]}`` and ``{"items": [...]}`` shapes are
+        accepted. Extra ``**params`` (e.g. ``framework``, ``limit``)
+        are forwarded verbatim; ``None`` values are stripped.
         """
         query: dict[str, Any] = {"q": q}
         query.update({k: v for k, v in params.items() if v is not None})
         body = self._client._request("GET", f"{self._path_prefix}/search", params=query)
-        data = body.get("data", [])
-        if not isinstance(data, list):
-            return []
-        return [item for item in data if isinstance(item, dict)]
+        return self._extract_items(body)
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Cursor-paginate through every matching regulation record.
@@ -132,10 +131,7 @@ class AsyncRegulationsResource(AsyncBaseResource):
         query: dict[str, Any] = {"q": q}
         query.update({k: v for k, v in params.items() if v is not None})
         body = await self._client._request("GET", f"{self._path_prefix}/search", params=query)
-        data = body.get("data", [])
-        if not isinstance(data, list):
-            return []
-        return [item for item in data if isinstance(item, dict)]
+        return self._extract_items(body)
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async variant of :meth:`RegulationsResource.iter_all`.

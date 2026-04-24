@@ -129,6 +129,18 @@ class TestSyncEntitiesResource:
         # Sanity: the old path must NOT be the one hit.
         assert "/entities/76123456-7/sanctions" not in str(route.calls.last.request.url.path)
 
+    def test_sanctions_accepts_items_envelope(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """Prod API uses ``{items: [...]}`` — the shared ``_extract_items``
+        helper must unwrap it transparently alongside ``{data: [...]}``.
+        """
+        respx_mock.get("/sanctions/by-entity/76123456-7").mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "s2"}]})
+        )
+        resource = EntitiesResource(sync_client)
+        assert resource.sanctions("76123456-7") == [{"id": "s2"}]
+
     def test_directors_happy_path(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:

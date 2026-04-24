@@ -64,29 +64,27 @@ class RPSFResource(BaseResource):
     def by_entity(self, id_: str) -> builtins.list[dict[str, Any]]:
         """List every RPSF record attached to an entity.
 
-        Issues ``GET /rpsf/by-entity/{id_}`` and unwraps the ``data``
-        envelope defensively (non-dict items in the list are dropped).
+        Issues ``GET /rpsf/by-entity/{id_}`` and unwraps the envelope
+        defensively via :meth:`BaseResource._extract_items` so both
+        ``{"data": [...]}`` and ``{"items": [...]}`` shapes are
+        accepted.
         """
         body = self._client._request("GET", f"{self._path_prefix}/by-entity/{quote(id_, safe='')}")
-        data = body.get("data", [])
-        if not isinstance(data, list):
-            return []
-        return [item for item in data if isinstance(item, dict)]
+        return self._extract_items(body)
 
     def by_servicio(self, servicio: str) -> builtins.list[dict[str, Any]]:
         """List every RPSF record for a given service class.
 
         Issues ``GET /rpsf/by-servicio/{servicio}``. The ``servicio``
         path segment is percent-encoded to survive values like
-        ``"corredora de bolsa"``.
+        ``"corredora de bolsa"``. The envelope is unwrapped via
+        :meth:`BaseResource._extract_items` — both ``{"data"}`` and
+        ``{"items"}`` shapes are accepted.
         """
         body = self._client._request(
             "GET", f"{self._path_prefix}/by-servicio/{quote(servicio, safe='')}"
         )
-        data = body.get("data", [])
-        if not isinstance(data, list):
-            return []
-        return [item for item in data if isinstance(item, dict)]
+        return self._extract_items(body)
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Cursor-paginate through every RPSF record matching ``filters``."""
@@ -111,20 +109,14 @@ class AsyncRPSFResource(AsyncBaseResource):
         body = await self._client._request(
             "GET", f"{self._path_prefix}/by-entity/{quote(id_, safe='')}"
         )
-        data = body.get("data", [])
-        if not isinstance(data, list):
-            return []
-        return [item for item in data if isinstance(item, dict)]
+        return self._extract_items(body)
 
     async def by_servicio(self, servicio: str) -> builtins.list[dict[str, Any]]:
         """Async variant of :meth:`RPSFResource.by_servicio`."""
         body = await self._client._request(
             "GET", f"{self._path_prefix}/by-servicio/{quote(servicio, safe='')}"
         )
-        data = body.get("data", [])
-        if not isinstance(data, list):
-            return []
-        return [item for item in data if isinstance(item, dict)]
+        return self._extract_items(body)
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async variant of :meth:`RPSFResource.iter_all`.

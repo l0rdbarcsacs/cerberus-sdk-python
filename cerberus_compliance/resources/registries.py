@@ -16,9 +16,10 @@ This module remains in the SDK as a compatibility shim:
   :class:`DeprecationWarning` and internally calls ``entities.by_rut``.
 - :meth:`RegistriesResource.list` and :meth:`RegistriesResource.get`
   raise :class:`NotImplementedError` with an explicit migration message.
-- The constructor emits a single :class:`DeprecationWarning` the first
-  time an instance is created, so existing code that never calls a
-  method still learns about the deprecation during unit tests.
+- Each deprecated method emits a :class:`DeprecationWarning` *on first
+  call* (not on construction). This keeps ``CerberusClient()`` silent
+  for partner SDK users who never touch the shim and only surfaces the
+  warning to callers who actually exercise the deprecated surface.
 
 The module will be removed in v0.3.0.
 """
@@ -27,13 +28,10 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import AsyncIterator, Iterator
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 from urllib.parse import quote
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
-
-if TYPE_CHECKING:
-    from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 
 __all__ = ["AsyncRegistriesResource", "RegistriesResource", "RegistryType"]
 
@@ -69,14 +67,24 @@ def _normalize_rut(rut: str) -> str:
     return f"{body}-{dv}"
 
 
+def _warn_deprecated_call(name: str) -> None:
+    """Emit the standard per-call :class:`DeprecationWarning` for the shim.
+
+    Factored into a helper so every deprecated method in both the sync
+    and async shims uses the exact same message + stacklevel — keeping
+    the user-visible warning text stable for downstream filter rules.
+    """
+    warnings.warn(
+        _DEPRECATION_MSG + f" (hit via client.registries.{name})",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 class RegistriesResource(BaseResource):
     """Deprecated shim for ``/registries``. See module docstring."""
 
     _path_prefix = "/registries"
-
-    def __init__(self, client: CerberusClient) -> None:
-        super().__init__(client)
-        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
 
     def list(
         self,
@@ -84,11 +92,18 @@ class RegistriesResource(BaseResource):
         registry_type: RegistryType | None = None,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
-        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        """Deprecated: no-op. Raises :class:`NotImplementedError`.
+
+        Emits a :class:`DeprecationWarning` before raising so callers
+        running under ``-W error::DeprecationWarning`` see the warning
+        path rather than a naked :class:`NotImplementedError`.
+        """
+        _warn_deprecated_call("list")
         raise NotImplementedError(_REMOVAL_MSG.format(name="list"))
 
     def get(self, id_: str) -> dict[str, Any]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
         raise NotImplementedError(_REMOVAL_MSG.format(name="get"))
 
     def lookup_rut(self, rut: str) -> dict[str, Any]:
@@ -110,6 +125,7 @@ class RegistriesResource(BaseResource):
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("iter_all")
         raise NotImplementedError(_REMOVAL_MSG.format(name="iter_all"))
 
 
@@ -118,10 +134,6 @@ class AsyncRegistriesResource(AsyncBaseResource):
 
     _path_prefix = "/registries"
 
-    def __init__(self, client: AsyncCerberusClient) -> None:
-        super().__init__(client)
-        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
-
     async def list(
         self,
         *,
@@ -129,10 +141,12 @@ class AsyncRegistriesResource(AsyncBaseResource):
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("list")
         raise NotImplementedError(_REMOVAL_MSG.format(name="list"))
 
     async def get(self, id_: str) -> dict[str, Any]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
         raise NotImplementedError(_REMOVAL_MSG.format(name="get"))
 
     async def lookup_rut(self, rut: str) -> dict[str, Any]:
@@ -148,4 +162,5 @@ class AsyncRegistriesResource(AsyncBaseResource):
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("iter_all")
         raise NotImplementedError(_REMOVAL_MSG.format(name="iter_all"))

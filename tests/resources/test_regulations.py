@@ -531,3 +531,29 @@ class TestRegulationsSearch:
         )
         resource = AsyncRegulationsResource(async_client)
         assert await resource.search("z") == []
+
+    # -----------------------------------------------------------------
+    # Prod-shape envelope ({items: ...}) must unwrap transparently via
+    # the shared BaseResource._extract_items helper.
+    # -----------------------------------------------------------------
+
+    def test_search_accepts_items_envelope(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/regulations/search", params={"q": "pep"}).mock(
+            return_value=httpx.Response(
+                200,
+                json={"items": [{"id": "reg_items_1", "framework": "Ley21521"}]},
+            )
+        )
+        resource = RegulationsResource(sync_client)
+        assert resource.search("pep") == [{"id": "reg_items_1", "framework": "Ley21521"}]
+
+    async def test_async_search_accepts_items_envelope(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/regulations/search", params={"q": "aml"}).mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "reg_items_2"}]})
+        )
+        resource = AsyncRegulationsResource(async_client)
+        assert await resource.search("aml") == [{"id": "reg_items_2"}]

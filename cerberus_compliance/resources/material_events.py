@@ -22,10 +22,11 @@ Migration
       profile = client.kyb.get("96.505.760-9", include=["material_events"])
       events = profile["hechos_esenciales"]
 
-The constructor emits a :class:`DeprecationWarning` once so existing
-imports surface the warning during unit tests. :meth:`list`,
-:meth:`get`, and :meth:`iter_all` raise :class:`NotImplementedError`
-with the migration recipe. The module will be removed in v0.3.0.
+Each deprecated method emits a :class:`DeprecationWarning` *on first
+call* (not on construction), so ``CerberusClient()`` stays silent for
+partner SDK users who never touch the shim. :meth:`list`, :meth:`get`,
+and :meth:`iter_all` raise :class:`NotImplementedError` with the
+migration recipe. The module will be removed in v0.3.0.
 """
 
 from __future__ import annotations
@@ -34,12 +35,9 @@ import builtins
 import warnings
 from collections.abc import AsyncIterator, Iterator
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
-
-if TYPE_CHECKING:
-    from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 
 __all__ = ["AsyncMaterialEventsResource", "MaterialEventsResource"]
 
@@ -56,14 +54,24 @@ _REMOVAL_MSG = (
 )
 
 
+def _warn_deprecated_call(name: str) -> None:
+    """Emit the standard per-call :class:`DeprecationWarning` for the shim.
+
+    Factored into a helper so every deprecated method in both the sync
+    and async shims uses the exact same message + stacklevel — keeping
+    the user-visible warning text stable for downstream filter rules.
+    """
+    warnings.warn(
+        _DEPRECATION_MSG + f" (hit via client.material_events.{name})",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 class MaterialEventsResource(BaseResource):
     """Deprecated shim for ``/material-events``. See module docstring."""
 
     _path_prefix = "/material-events"
-
-    def __init__(self, client: CerberusClient) -> None:
-        super().__init__(client)
-        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
 
     def list(
         self,
@@ -73,15 +81,23 @@ class MaterialEventsResource(BaseResource):
         until: str | datetime | None = None,
         limit: int | None = None,
     ) -> builtins.list[dict[str, Any]]:
-        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        """Deprecated: no-op. Raises :class:`NotImplementedError`.
+
+        Emits a :class:`DeprecationWarning` before raising so callers
+        running under ``-W error::DeprecationWarning`` see the warning
+        path rather than a naked :class:`NotImplementedError`.
+        """
+        _warn_deprecated_call("list")
         raise NotImplementedError(_REMOVAL_MSG.format(name="list"))
 
     def get(self, id_: str) -> dict[str, Any]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
         raise NotImplementedError(_REMOVAL_MSG.format(name="get"))
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("iter_all")
         raise NotImplementedError(_REMOVAL_MSG.format(name="iter_all"))
 
 
@@ -89,10 +105,6 @@ class AsyncMaterialEventsResource(AsyncBaseResource):
     """Deprecated async mirror of :class:`MaterialEventsResource`."""
 
     _path_prefix = "/material-events"
-
-    def __init__(self, client: AsyncCerberusClient) -> None:
-        super().__init__(client)
-        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
 
     async def list(
         self,
@@ -103,12 +115,15 @@ class AsyncMaterialEventsResource(AsyncBaseResource):
         limit: int | None = None,
     ) -> builtins.list[dict[str, Any]]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("list")
         raise NotImplementedError(_REMOVAL_MSG.format(name="list"))
 
     async def get(self, id_: str) -> dict[str, Any]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
         raise NotImplementedError(_REMOVAL_MSG.format(name="get"))
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("iter_all")
         raise NotImplementedError(_REMOVAL_MSG.format(name="iter_all"))

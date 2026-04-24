@@ -89,6 +89,17 @@ class BaseResource:
     def __init__(self, client: CerberusClient) -> None:
         self._client = client
 
+    # Instance-method mirror of the module-level :func:`_extract_items` helper.
+    # Subclasses that implement bespoke endpoints (``EntitiesResource.sanctions``,
+    # ``RPSFResource.by_entity``/``by_servicio``, ``RegulationsResource.search``,
+    # etc.) call this directly so every nested-list endpoint uniformly accepts
+    # both ``{"data": [...]}`` and ``{"items": [...]}`` envelopes — matching what
+    # :meth:`_list` / :meth:`_iter_all` already do for the standard list path.
+    # Bound as a staticmethod because it has no per-instance state; the shared
+    # implementation stays in :func:`_extract_items` so the method body is a
+    # one-liner and both sync + async bases can re-expose it.
+    _extract_items = staticmethod(_extract_items)
+
     def _list(self, *, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Issue ``GET <prefix>?params`` and return the row array.
 
@@ -147,6 +158,9 @@ class AsyncBaseResource:
 
     def __init__(self, client: AsyncCerberusClient) -> None:
         self._client = client
+
+    # See :attr:`BaseResource._extract_items` for rationale.
+    _extract_items = staticmethod(_extract_items)
 
     async def _list(self, *, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Async variant of :meth:`BaseResource._list`."""

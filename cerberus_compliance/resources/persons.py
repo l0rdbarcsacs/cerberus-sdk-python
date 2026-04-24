@@ -10,9 +10,11 @@ exposed by the prod Cerberus Compliance API. The pre-v0.2.0
 ``/persons`` collection and ``/persons/{id}`` detail endpoints never
 shipped, so :meth:`PersonsResource.list` / :meth:`PersonsResource.get`
 are deprecated compatibility shims in v0.2.0 that emit a
-:class:`DeprecationWarning` on construction and raise
-:class:`NotImplementedError` when called. They will be removed in
-v0.3.0 — see the CHANGELOG ``Deprecated`` subsection.
+:class:`DeprecationWarning` *on first call* (not on construction) and
+raise :class:`NotImplementedError` when called. Keeping
+``CerberusClient()`` silent lets partner SDK users who never touch the
+deprecated surface avoid spurious warnings on import. The shims will
+be removed in v0.3.0 — see the CHANGELOG ``Deprecated`` subsection.
 
 Migration paths for enumerating personas:
 
@@ -33,13 +35,10 @@ from __future__ import annotations
 import builtins
 import warnings
 from collections.abc import AsyncIterator, Iterator
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import quote
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
-
-if TYPE_CHECKING:
-    from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 
 __all__ = ["AsyncPersonsResource", "PersonsResource"]
 
@@ -58,6 +57,20 @@ _REMOVAL_MSG = (
 )
 
 
+def _warn_deprecated_call(name: str) -> None:
+    """Emit the standard per-call :class:`DeprecationWarning` for the shim.
+
+    Factored into a helper so every deprecated method in both the sync
+    and async shims uses the exact same message + stacklevel — keeping
+    the user-visible warning text stable for downstream filter rules.
+    """
+    warnings.warn(
+        _DEPRECATION_MSG + f" (hit via client.persons.{name})",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 class PersonsResource(BaseResource):
     """Synchronous accessor for the ``/persons`` endpoint family.
 
@@ -69,21 +82,24 @@ class PersonsResource(BaseResource):
 
     _path_prefix = "/persons"
 
-    def __init__(self, client: CerberusClient) -> None:
-        super().__init__(client)
-        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
-
     def list(
         self,
         *,
         rut: str | None = None,
         limit: int | None = None,
     ) -> builtins.list[dict[str, Any]]:
-        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        """Deprecated: no-op. Raises :class:`NotImplementedError`.
+
+        Emits a :class:`DeprecationWarning` before raising so callers
+        running under ``-W error::DeprecationWarning`` see the warning
+        path rather than a naked :class:`NotImplementedError`.
+        """
+        _warn_deprecated_call("list")
         raise NotImplementedError(_REMOVAL_MSG)
 
     def get(self, id_: str) -> dict[str, Any]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
         raise NotImplementedError(_REMOVAL_MSG)
 
     def regulatory_profile(self, id_: str) -> dict[str, Any]:
@@ -105,6 +121,7 @@ class PersonsResource(BaseResource):
         method is a compatibility shim that surfaces a clear error
         instead of silently hitting a 404.
         """
+        _warn_deprecated_call("iter_all")
         raise NotImplementedError(_REMOVAL_MSG)
 
 
@@ -113,10 +130,6 @@ class AsyncPersonsResource(AsyncBaseResource):
 
     _path_prefix = "/persons"
 
-    def __init__(self, client: AsyncCerberusClient) -> None:
-        super().__init__(client)
-        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
-
     async def list(
         self,
         *,
@@ -124,10 +137,12 @@ class AsyncPersonsResource(AsyncBaseResource):
         limit: int | None = None,
     ) -> builtins.list[dict[str, Any]]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("list")
         raise NotImplementedError(_REMOVAL_MSG)
 
     async def get(self, id_: str) -> dict[str, Any]:
         """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
         raise NotImplementedError(_REMOVAL_MSG)
 
     async def regulatory_profile(self, id_: str) -> dict[str, Any]:
@@ -142,4 +157,5 @@ class AsyncPersonsResource(AsyncBaseResource):
         Plain non-``async`` method so the raise fires immediately at
         call time, matching the sync mirror's semantics.
         """
+        _warn_deprecated_call("iter_all")
         raise NotImplementedError(_REMOVAL_MSG)
