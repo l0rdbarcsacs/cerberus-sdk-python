@@ -45,7 +45,7 @@ jobs:
     # which required `build` in `needs:` — fine here, but brittle if refactored.
     if: contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha')
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -131,7 +131,7 @@ jobs:
     # and verify-testpypi). Stable tags only — pre-release suffixes are excluded.
     if: "!contains(github.ref_name, '-rc') && !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha')"
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
