@@ -1,8 +1,6 @@
 """Public sub-resource exports for the Cerberus Compliance SDK.
 
-Instances B and C contribute resources append-only here. ``__all__`` and
-the import block stay alphabetically sorted so any future contributor
-rebases trivially regardless of merge order.
+Kept alphabetically sorted so future contributions rebase trivially.
 """
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
@@ -10,9 +8,17 @@ from cerberus_compliance.resources.entities import (
     AsyncEntitiesResource,
     EntitiesResource,
 )
+from cerberus_compliance.resources.kyb import (
+    AsyncKYBResource,
+    KYBResource,
+)
 from cerberus_compliance.resources.material_events import (
     AsyncMaterialEventsResource,
     MaterialEventsResource,
+)
+from cerberus_compliance.resources.normativa import (
+    AsyncNormativaResource,
+    NormativaResource,
 )
 from cerberus_compliance.resources.persons import (
     AsyncPersonsResource,
@@ -28,6 +34,10 @@ from cerberus_compliance.resources.regulations import (
     RegulationFramework,
     RegulationsResource,
 )
+from cerberus_compliance.resources.rpsf import (
+    AsyncRPSFResource,
+    RPSFResource,
+)
 from cerberus_compliance.resources.sanctions import (
     AsyncSanctionsResource,
     SanctionSource,
@@ -37,15 +47,21 @@ from cerberus_compliance.resources.sanctions import (
 __all__ = [
     "AsyncBaseResource",
     "AsyncEntitiesResource",
+    "AsyncKYBResource",
     "AsyncMaterialEventsResource",
+    "AsyncNormativaResource",
     "AsyncPersonsResource",
+    "AsyncRPSFResource",
     "AsyncRegistriesResource",
     "AsyncRegulationsResource",
     "AsyncSanctionsResource",
     "BaseResource",
     "EntitiesResource",
+    "KYBResource",
     "MaterialEventsResource",
+    "NormativaResource",
     "PersonsResource",
+    "RPSFResource",
     "RegistriesResource",
     "RegistryType",
     "RegulationFramework",

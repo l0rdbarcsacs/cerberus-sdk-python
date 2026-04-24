@@ -1,21 +1,38 @@
-"""Typed accessors for the Cerberus Compliance ``/material-events`` resource.
+"""Deprecated: standalone ``/material-events`` sub-resource.
 
-Material events (``hechos esenciales`` in Chilean regulatory parlance) are
-disclosure filings that listed entities must submit to the CMF whenever an
-event materially affects their securities or financial position. This module
-exposes the synchronous :class:`MaterialEventsResource` and its asynchronous
-mirror :class:`AsyncMaterialEventsResource`; both delegate to the shared base
-classes in :mod:`cerberus_compliance.resources._base`.
+Prod API ``https://compliance.cerberus.cl/v1`` does not expose a
+top-level ``/material-events`` endpoint family. Material events
+(``hechos esenciales``) are embedded in the entity profile under the
+``hechos_esenciales`` key returned by ``GET /v1/entities/{id}`` and
+``GET /v1/kyb/{rut}``. The audit that produced the v0.2.0 plan (G3)
+flagged this as a broken SDK surface.
 
-Time filters (``since`` / ``until``) accept either ISO-8601 strings or
-timezone-aware :class:`datetime.datetime` values; datetimes are serialized via
-:meth:`datetime.datetime.isoformat` before being forwarded as query params,
-strings pass through unchanged. See :func:`_coerce_params`.
+Migration
+---------
+* Single entity:
+
+  .. code-block:: python
+
+      events = client.entities.get("ent_123")["hechos_esenciales"]
+
+* Rich, point-in-time view:
+
+  .. code-block:: python
+
+      profile = client.kyb.get("96.505.760-9", include=["material_events"])
+      events = profile["hechos_esenciales"]
+
+Each deprecated method emits a :class:`DeprecationWarning` *on first
+call* (not on construction), so ``CerberusClient()`` stays silent for
+partner SDK users who never touch the shim. :meth:`list`, :meth:`get`,
+and :meth:`iter_all` raise :class:`NotImplementedError` with the
+migration recipe. The module will be removed in v0.3.0.
 """
 
 from __future__ import annotations
 
 import builtins
+import warnings
 from collections.abc import AsyncIterator, Iterator
 from datetime import datetime
 from typing import Any
@@ -24,36 +41,35 @@ from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 
 __all__ = ["AsyncMaterialEventsResource", "MaterialEventsResource"]
 
+_DEPRECATION_MSG = (
+    "client.material_events is deprecated and will be removed in v0.3.0. "
+    'Use client.entities.get(id)["hechos_esenciales"] or '
+    'client.kyb.get(rut, include=["material_events"]) instead. '
+    "See CHANGELOG v0.2.0 (G3) for the migration."
+)
+_REMOVAL_MSG = (
+    "client.material_events.{name} is no longer backed by a real endpoint; "
+    'use client.entities.get(id)["hechos_esenciales"] or '
+    'client.kyb.get(rut, include=["material_events"]) instead. Removed in v0.3.0.'
+)
 
-def _coerce_params(raw: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Serialize datetime values in a params dict to ISO-8601 strings.
 
-    Returns ``None`` when ``raw`` is ``None`` or empty so callers can pass the
-    result straight through to ``_request(..., params=...)``. For non-empty
-    inputs, returns a fresh dict where any :class:`datetime.datetime` value is
-    replaced by ``value.isoformat()``; other value types pass through
-    untouched.
+def _warn_deprecated_call(name: str) -> None:
+    """Emit the standard per-call :class:`DeprecationWarning` for the shim.
 
-    Naive datetimes (``tzinfo is None``) are rejected with ``ValueError`` —
-    per the Cerberus workspace standard all timestamps crossing the API
-    boundary must be timezone-aware to prevent silent drift between
-    ``America/Santiago`` wall-clock and UTC.
+    Factored into a helper so every deprecated method in both the sync
+    and async shims uses the exact same message + stacklevel — keeping
+    the user-visible warning text stable for downstream filter rules.
     """
-    if not raw:
-        return None
-    coerced: dict[str, Any] = {}
-    for key, value in raw.items():
-        if isinstance(value, datetime):
-            if value.tzinfo is None:
-                raise ValueError(f"{key!r} must be a timezone-aware datetime; got naive {value!r}")
-            coerced[key] = value.isoformat()
-        else:
-            coerced[key] = value
-    return coerced
+    warnings.warn(
+        _DEPRECATION_MSG + f" (hit via client.material_events.{name})",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class MaterialEventsResource(BaseResource):
-    """Synchronous accessor for the ``/material-events`` endpoint family."""
+    """Deprecated shim for ``/material-events``. See module docstring."""
 
     _path_prefix = "/material-events"
 
@@ -65,43 +81,28 @@ class MaterialEventsResource(BaseResource):
         until: str | datetime | None = None,
         limit: int | None = None,
     ) -> builtins.list[dict[str, Any]]:
-        """Return the first page of material events, optionally filtered.
+        """Deprecated: no-op. Raises :class:`NotImplementedError`.
 
-        Args:
-            entity_id: Restrict to events for a single entity (by RUT).
-            since: Lower bound on publication timestamp. ``datetime`` values
-                are serialized to ISO-8601; strings are forwarded verbatim.
-            until: Upper bound on publication timestamp. Same coercion rule
-                as ``since``.
-            limit: Maximum number of events to return on this page.
+        Emits a :class:`DeprecationWarning` before raising so callers
+        running under ``-W error::DeprecationWarning`` see the warning
+        path rather than a naked :class:`NotImplementedError`.
         """
-        raw: dict[str, Any] = {}
-        if entity_id is not None:
-            raw["entity_id"] = entity_id
-        if since is not None:
-            raw["since"] = since
-        if until is not None:
-            raw["until"] = until
-        if limit is not None:
-            raw["limit"] = limit
-        return self._list(params=_coerce_params(raw))
+        _warn_deprecated_call("list")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="list"))
 
     def get(self, id_: str) -> dict[str, Any]:
-        """Fetch a single material event by ID (``GET /material-events/<id_>``)."""
-        return self._get(id_)
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="get"))
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
-        """Iterate through every material event, transparently paginating.
-
-        Forwards arbitrary ``**filters`` on every page request, applying the
-        same datetime-to-ISO coercion rule as :meth:`list`. Returns the
-        underlying generator directly so callers get a plain sync generator.
-        """
-        return self._iter_all(params=_coerce_params(filters))
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("iter_all")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="iter_all"))
 
 
 class AsyncMaterialEventsResource(AsyncBaseResource):
-    """Asynchronous accessor for the ``/material-events`` endpoint family."""
+    """Deprecated async mirror of :class:`MaterialEventsResource`."""
 
     _path_prefix = "/material-events"
 
@@ -113,28 +114,16 @@ class AsyncMaterialEventsResource(AsyncBaseResource):
         until: str | datetime | None = None,
         limit: int | None = None,
     ) -> builtins.list[dict[str, Any]]:
-        """Async variant of :meth:`MaterialEventsResource.list`."""
-        raw: dict[str, Any] = {}
-        if entity_id is not None:
-            raw["entity_id"] = entity_id
-        if since is not None:
-            raw["since"] = since
-        if until is not None:
-            raw["until"] = until
-        if limit is not None:
-            raw["limit"] = limit
-        return await self._list(params=_coerce_params(raw))
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("list")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="list"))
 
     async def get(self, id_: str) -> dict[str, Any]:
-        """Async variant of :meth:`MaterialEventsResource.get`."""
-        return await self._get(id_)
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="get"))
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
-        """Async iterator over every material event.
-
-        Intentionally a non-``async`` method that returns the underlying async
-        generator directly, so callers can write ``async for`` at the call
-        site without an extra ``await``. Applies the same datetime-to-ISO
-        coercion rule as :meth:`MaterialEventsResource.iter_all`.
-        """
-        return self._iter_all(params=_coerce_params(filters))
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("iter_all")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="iter_all"))

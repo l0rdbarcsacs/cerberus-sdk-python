@@ -11,18 +11,37 @@ import cerberus_compliance
 
 EXPECTED_ALL = {
     "AsyncCerberusClient",
+    "AsyncEntitiesResource",
+    "AsyncKYBResource",
+    "AsyncMaterialEventsResource",
+    "AsyncNormativaResource",
+    "AsyncPersonsResource",
+    "AsyncRegistriesResource",
+    "AsyncRegulationsResource",
+    "AsyncRPSFResource",
+    "AsyncSanctionsResource",
     "AuthError",
     "CerberusAPIError",
     "CerberusClient",
+    "EntitiesResource",
+    "KYBResource",
+    "MaterialEventsResource",
+    "NormativaResource",
+    "NotFoundError",
+    "PersonsResource",
     "QuotaError",
     "RateLimitError",
+    "RegistriesResource",
+    "RegulationsResource",
+    "RPSFResource",
+    "SanctionsResource",
     "ServerError",
     "ValidationError",
 }
 
 
-def test_version_is_semver_0_1_0() -> None:
-    assert cerberus_compliance.__version__ == "0.1.0"
+def test_version_is_semver_0_2_0() -> None:
+    assert cerberus_compliance.__version__ == "0.2.0"
 
 
 def test_all_matches_expected_surface() -> None:
@@ -38,13 +57,14 @@ def test_error_subclasses_inherit_from_base() -> None:
     from cerberus_compliance import (
         AuthError,
         CerberusAPIError,
+        NotFoundError,
         QuotaError,
         RateLimitError,
         ServerError,
         ValidationError,
     )
 
-    for sub in (AuthError, ValidationError, QuotaError, RateLimitError, ServerError):
+    for sub in (AuthError, NotFoundError, ValidationError, QuotaError, RateLimitError, ServerError):
         assert issubclass(sub, CerberusAPIError)
 
 

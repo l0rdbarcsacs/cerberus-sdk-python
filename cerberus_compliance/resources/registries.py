@@ -1,19 +1,35 @@
-"""Public Chilean registries sub-resource (CMF / SII / DICOM / Conservador).
+"""Deprecated: public Chilean registries sub-resource.
 
-Exposes list / get / iter_all endpoints plus a RUT-lookup helper that
-normalises the input (strips whitespace, dots, and hyphens; uppercases
-the check digit ``k``) before hitting the network. Invalid RUTs are
-rejected with :class:`ValueError` before any request is issued.
+The original ``/registries`` endpoint family never shipped on the prod
+Cerberus Compliance API at ``https://compliance.cerberus.cl/v1``. The
+audit that produced the v0.2.0 plan (G3) found the SDK was targeting a
+fictional namespace; callers should migrate to:
 
-The sub-resource follows the snake_case query-parameter convention
-(``registry_type=CMF``) to stay consistent with Python naming; the
-server accepts this form alongside the camelCase equivalent.
+- :meth:`cerberus_compliance.resources.entities.EntitiesResource.by_rut`
+  for RUT lookups (``GET /v1/entities/by-rut/{rut}``).
+- :attr:`cerberus_compliance.CerberusClient.rpsf` for CMF-regulated
+  financial-service registry records.
+
+This module remains in the SDK as a compatibility shim:
+
+- :meth:`RegistriesResource.lookup_rut` still works — it emits a
+  :class:`DeprecationWarning` and internally calls ``entities.by_rut``.
+- :meth:`RegistriesResource.list` and :meth:`RegistriesResource.get`
+  raise :class:`NotImplementedError` with an explicit migration message.
+- Each deprecated method emits a :class:`DeprecationWarning` *on first
+  call* (not on construction). This keeps ``CerberusClient()`` silent
+  for partner SDK users who never touch the shim and only surfaces the
+  warning to callers who actually exercise the deprecated surface.
+
+The module will be removed in v0.3.0.
 """
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, Literal
+from urllib.parse import quote
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 
@@ -21,16 +37,22 @@ __all__ = ["AsyncRegistriesResource", "RegistriesResource", "RegistryType"]
 
 RegistryType = Literal["CMF", "SII", "DICOM", "Conservador"]
 
+_DEPRECATION_MSG = (
+    "client.registries is deprecated and will be removed in v0.2.0+1 (planned v0.3.0). "
+    "Use client.entities.by_rut() for RUT lookups, or client.rpsf for CMF registry records. "
+    "See CHANGELOG v0.2.0 (G3) for the migration."
+)
+_REMOVAL_MSG = (
+    "client.registries.{name} is no longer backed by a real endpoint; "
+    "use client.entities.by_rut() or client.rpsf instead. Removed in v0.3.0."
+)
+
 
 def _normalize_rut(rut: str) -> str:
     """Return the canonical ``<body>-<dv>`` form of ``rut``.
 
-    The input is stripped of whitespace, dots, and hyphens; the check
-    digit is uppercased when it is ``k``. Raises :class:`ValueError`
-    when the string is empty, shorter than two characters, contains
-    non-alphanumeric chars, has a non-numeric body, or has a verifier
-    that is not a digit or ``K``. This validation is syntactic only:
-    the check-digit arithmetic is not verified.
+    Retained for backwards compatibility with :meth:`lookup_rut`; the
+    canonical form is what ``entities.by_rut`` now hits.
     """
     stripped = "".join(ch for ch in rut if not ch.isspace())
     cleaned = stripped.replace(".", "").replace("-", "")
@@ -45,31 +67,22 @@ def _normalize_rut(rut: str) -> str:
     return f"{body}-{dv}"
 
 
-def _build_list_params(
-    registry_type: RegistryType | None,
-    limit: int | None,
-) -> dict[str, Any] | None:
-    """Assemble a query dict, dropping ``None`` values.
+def _warn_deprecated_call(name: str) -> None:
+    """Emit the standard per-call :class:`DeprecationWarning` for the shim.
 
-    Returns ``None`` when all parameters are absent so the client omits
-    the query string entirely.
+    Factored into a helper so every deprecated method in both the sync
+    and async shims uses the exact same message + stacklevel — keeping
+    the user-visible warning text stable for downstream filter rules.
     """
-    params: dict[str, Any] = {}
-    if registry_type is not None:
-        params["registry_type"] = registry_type
-    if limit is not None:
-        params["limit"] = limit
-    return params or None
-
-
-def _drop_none(filters: dict[str, Any]) -> dict[str, Any] | None:
-    """Remove ``None``-valued entries; return ``None`` when nothing remains."""
-    cleaned = {k: v for k, v in filters.items() if v is not None}
-    return cleaned or None
+    warnings.warn(
+        _DEPRECATION_MSG + f" (hit via client.registries.{name})",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class RegistriesResource(BaseResource):
-    """Synchronous accessor for ``/registries`` endpoints."""
+    """Deprecated shim for ``/registries``. See module docstring."""
 
     _path_prefix = "/registries"
 
@@ -79,31 +92,45 @@ class RegistriesResource(BaseResource):
         registry_type: RegistryType | None = None,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
-        """List registries, optionally filtered by ``registry_type``."""
-        return self._list(params=_build_list_params(registry_type, limit))
+        """Deprecated: no-op. Raises :class:`NotImplementedError`.
+
+        Emits a :class:`DeprecationWarning` before raising so callers
+        running under ``-W error::DeprecationWarning`` see the warning
+        path rather than a naked :class:`NotImplementedError`.
+        """
+        _warn_deprecated_call("list")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="list"))
 
     def get(self, id_: str) -> dict[str, Any]:
-        """Fetch a single registry entry by its server-assigned id."""
-        return self._get(id_)
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="get"))
 
     def lookup_rut(self, rut: str) -> dict[str, Any]:
-        """Look up registries cross-referenced to a RUT.
+        """Deprecated: redirects to ``entities.by_rut``.
 
-        The input is normalised in-process and rejected with
-        :class:`ValueError` when it cannot be interpreted as a RUT. On
-        success this issues ``GET /registries/lookup/rut/<body>-<dv>``.
+        Emits a :class:`DeprecationWarning` and returns the result of
+        ``GET /entities/by-rut/{rut}``. The RUT is normalised in-process
+        (same rules as the pre-v0.2.0 implementation) so callers relying
+        on lenient input (``96.505.760-9``, ``96505760-9``) still work.
         """
+        warnings.warn(
+            "client.registries.lookup_rut is deprecated; use client.entities.by_rut instead. "
+            "Removed in v0.3.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         normalized = _normalize_rut(rut)
-        path = f"{self._path_prefix}/lookup/rut/{normalized}"
-        return self._client._request("GET", path)
+        return self._client._request("GET", f"/entities/by-rut/{quote(normalized, safe='')}")
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
-        """Cursor-paginate through all registries matching ``filters``."""
-        return self._iter_all(params=_drop_none(filters))
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("iter_all")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="iter_all"))
 
 
 class AsyncRegistriesResource(AsyncBaseResource):
-    """Asynchronous accessor for ``/registries`` endpoints."""
+    """Deprecated async mirror of :class:`RegistriesResource`."""
 
     _path_prefix = "/registries"
 
@@ -113,19 +140,27 @@ class AsyncRegistriesResource(AsyncBaseResource):
         registry_type: RegistryType | None = None,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
-        """List registries, optionally filtered by ``registry_type``."""
-        return await self._list(params=_build_list_params(registry_type, limit))
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("list")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="list"))
 
     async def get(self, id_: str) -> dict[str, Any]:
-        """Fetch a single registry entry by its server-assigned id."""
-        return await self._get(id_)
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="get"))
 
     async def lookup_rut(self, rut: str) -> dict[str, Any]:
         """Async variant of :meth:`RegistriesResource.lookup_rut`."""
+        warnings.warn(
+            "client.registries.lookup_rut is deprecated; use client.entities.by_rut instead. "
+            "Removed in v0.3.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         normalized = _normalize_rut(rut)
-        path = f"{self._path_prefix}/lookup/rut/{normalized}"
-        return await self._client._request("GET", path)
+        return await self._client._request("GET", f"/entities/by-rut/{quote(normalized, safe='')}")
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
-        """Cursor-paginate through all registries matching ``filters``."""
-        return self._iter_all(params=_drop_none(filters))
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("iter_all")
+        raise NotImplementedError(_REMOVAL_MSG.format(name="iter_all"))

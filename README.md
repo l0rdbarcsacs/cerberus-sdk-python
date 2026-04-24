@@ -37,17 +37,24 @@ Requires **Python 3.10+**. Core dependencies: `httpx>=0.27,<1.0`, `pydantic>=2.6
 
 ```python
 import os
+from datetime import date
 from cerberus_compliance import CerberusClient
 
 with CerberusClient(api_key=os.environ["CERBERUS_API_KEY"]) as client:
-    hits = client.entities.list(rut="76.086.428-5", limit=1)
-    if not hits:
-        raise SystemExit("no entity matched that RUT")
-    print(hits[0]["legal_name"])
+    profile = client.kyb.get(
+        "96.505.760-9",
+        as_of=date(2024, 1, 1),
+        include=["directors", "lei", "sanctions"],
+    )
+    print(profile["legal_name"], profile["risk_score"])
 ```
 
+`client.kyb.get(rut, *, as_of=..., include=[...])` is the flagship aggregate endpoint —
+one round-trip returns a consolidated entity profile with optional dimensions embedded.
+
 The constructor reads `CERBERUS_API_KEY` from the environment when `api_key=` is omitted,
-so in typical deployments you can write `CerberusClient()` with no arguments.
+so in typical deployments you can write `CerberusClient()` with no arguments. The default
+base URL is `https://compliance.cerberus.cl/v1`.
 
 ## Authentication
 
@@ -94,8 +101,9 @@ is raised to the caller.
 All non-2xx responses raise a subclass of `CerberusAPIError`. Each exception carries
 `.status`, `.problem` (the RFC 7807 body as a `dict`), `.request_id`, and convenience
 `.title` / `.detail` / `.type` / `.instance` properties. The hierarchy is:
-`AuthError` (401/403), `QuotaError` (402), `ValidationError` (422, with `.errors`),
-`RateLimitError` (429, with `.retry_after`), `ServerError` (5xx).
+`AuthError` (401/403), `QuotaError` (402), `NotFoundError` (404),
+`ValidationError` (422, with `.errors`), `RateLimitError` (429, with `.retry_after`),
+`ServerError` (5xx).
 
 See [`docs/errors.md`](./docs/errors.md) for recipes and support-ticket guidance.
 
@@ -107,10 +115,8 @@ from cerberus_compliance import AsyncCerberusClient
 
 async def main() -> None:
     async with AsyncCerberusClient() as client:
-        hits = await client.entities.list(rut="76.086.428-5", limit=1)
-        if not hits:
-            raise SystemExit("no entity matched that RUT")
-        print(hits[0]["legal_name"])
+        profile = await client.kyb.get("96.505.760-9", include=["directors"])
+        print(profile["legal_name"], profile["risk_score"])
 
 asyncio.run(main())
 ```
@@ -139,17 +145,22 @@ so you never have to hold a full result set in memory. See
 
 ## Status / roadmap
 
-`v0.1.0-rc1` is a release candidate. The transport, auth, retry, error, pagination
-foundations **and** the six typed resource namespaces are final:
+`v0.2.0` tracks the real prod API at `https://compliance.cerberus.cl/v1`. Typed
+resource coverage:
 
-| Surface                                                       | Status           |
-|---------------------------------------------------------------|------------------|
-| `CerberusClient` / `AsyncCerberusClient`                      | Shipped in rc1   |
-| `CerberusAPIError` hierarchy                                  | Shipped in rc1   |
-| `RetryConfig`, `ApiKeyAuth`                                   | Shipped in rc1   |
-| `client.entities`, `client.persons`, `client.material_events` | Shipped in rc1   |
-| `client.sanctions`, `client.registries`, `client.regulations` | Shipped in rc1   |
-| Webhook signature helper (SDK-side)                           | Planned v0.2.0   |
+| Surface                                                                  | Status             |
+|--------------------------------------------------------------------------|--------------------|
+| `CerberusClient` / `AsyncCerberusClient`                                 | Shipped in v0.2.0  |
+| `CerberusAPIError` hierarchy (incl. `NotFoundError`)                     | Shipped in v0.2.0  |
+| `RetryConfig`, `ApiKeyAuth`                                              | Shipped in v0.2.0  |
+| `client.kyb.get(rut, *, as_of, include)` — flagship aggregate            | Shipped in v0.2.0  |
+| `client.entities` (`list` / `get` / `by_rut` / `ownership` / `sanctions` / `material_events` / `directors` / `regulations` / `iter_all`) | Shipped in v0.2.0  |
+| `client.persons` (`list` / `get` / `regulatory_profile` / `iter_all`)    | Shipped in v0.2.0  |
+| `client.sanctions`, `client.regulations` (+ `search`)                    | Shipped in v0.2.0  |
+| `client.rpsf` (CMF Registro Público de Servicios Financieros)            | Shipped in v0.2.0  |
+| `client.normativa` (regulatory-text catalogue + `mercado` mapping)       | Shipped in v0.2.0  |
+| `client.registries`, `client.material_events`                            | **Deprecated** in v0.2.0; removed in v0.3.0 |
+| Webhook signature helper (SDK-side)                                      | Planned v0.3.0     |
 
 For endpoints not yet wrapped by a typed resource you can still call the low-level
 `client._request(method, path, *, params=..., json=...)` transport, which returns

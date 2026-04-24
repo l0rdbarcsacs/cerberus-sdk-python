@@ -438,3 +438,122 @@ class TestAsyncRegulationsResource:
             out.append(item)
         assert out == [{"id": "reg_only"}]
         assert route.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# G16 — /regulations/search
+# ---------------------------------------------------------------------------
+
+
+class TestRegulationsSearch:
+    def test_search_hits_search_endpoint_with_q(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/regulations/search", params={"q": "pep"}).mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": [{"id": "reg_1", "framework": "Ley21521"}]},
+            )
+        )
+        resource = RegulationsResource(sync_client)
+        result = resource.search("pep")
+        assert result == [{"id": "reg_1", "framework": "Ley21521"}]
+        assert route.called
+
+    def test_search_forwards_extra_params(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/regulations/search",
+            params={"q": "beneficiary", "framework": "Ley21719", "limit": "5"},
+        ).mock(return_value=httpx.Response(200, json={"data": []}))
+        resource = RegulationsResource(sync_client)
+        result = resource.search("beneficiary", framework="Ley21719", limit=5)
+        assert result == []
+        assert route.called
+
+    def test_search_drops_none_params(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/regulations/search", params={"q": "kyc"}).mock(
+            return_value=httpx.Response(200, json={"data": []})
+        )
+        resource = RegulationsResource(sync_client)
+        result = resource.search("kyc", framework=None, limit=None)
+        assert result == []
+        assert route.called
+
+    def test_search_missing_data_returns_empty(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/regulations/search", params={"q": "x"}).mock(
+            return_value=httpx.Response(200, json={})
+        )
+        resource = RegulationsResource(sync_client)
+        assert resource.search("x") == []
+
+    def test_search_data_not_list_returns_empty(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/regulations/search", params={"q": "x"}).mock(
+            return_value=httpx.Response(200, json={"data": "oops"})
+        )
+        resource = RegulationsResource(sync_client)
+        assert resource.search("x") == []
+
+    async def test_async_search(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/regulations/search", params={"q": "aml"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "reg_a"}]})
+        )
+        resource = AsyncRegulationsResource(async_client)
+        result = await resource.search("aml")
+        assert result == [{"id": "reg_a"}]
+        assert route.called
+
+    async def test_async_search_forwards_params(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/regulations/search",
+            params={"q": "aml", "framework": "SOX"},
+        ).mock(return_value=httpx.Response(200, json={"data": []}))
+        resource = AsyncRegulationsResource(async_client)
+        assert await resource.search("aml", framework="SOX") == []
+        assert route.called
+
+    async def test_async_search_non_list_data_returns_empty(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/regulations/search", params={"q": "z"}).mock(
+            return_value=httpx.Response(200, json={"data": "oops"})
+        )
+        resource = AsyncRegulationsResource(async_client)
+        assert await resource.search("z") == []
+
+    # -----------------------------------------------------------------
+    # Prod-shape envelope ({items: ...}) must unwrap transparently via
+    # the shared BaseResource._extract_items helper.
+    # -----------------------------------------------------------------
+
+    def test_search_accepts_items_envelope(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/regulations/search", params={"q": "pep"}).mock(
+            return_value=httpx.Response(
+                200,
+                json={"items": [{"id": "reg_items_1", "framework": "Ley21521"}]},
+            )
+        )
+        resource = RegulationsResource(sync_client)
+        assert resource.search("pep") == [{"id": "reg_items_1", "framework": "Ley21521"}]
+
+    async def test_async_search_accepts_items_envelope(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/regulations/search", params={"q": "aml"}).mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "reg_items_2"}]})
+        )
+        resource = AsyncRegulationsResource(async_client)
+        assert await resource.search("aml") == [{"id": "reg_items_2"}]

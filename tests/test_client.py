@@ -32,6 +32,7 @@ from cerberus_compliance.client import (
 from cerberus_compliance.errors import (
     AuthError,
     CerberusAPIError,
+    NotFoundError,
     QuotaError,
     RateLimitError,
     ServerError,
@@ -227,7 +228,7 @@ class TestSyncRequestErrorMapping:
             sync_client._request("GET", "/p")
         assert exc.value.request_id == "req-123"
 
-    def test_404_raises_base_api_error(
+    def test_404_raises_not_found_error(
         self,
         sync_client: CerberusClient,
         respx_mock: respx.MockRouter,
@@ -236,10 +237,11 @@ class TestSyncRequestErrorMapping:
         respx_mock.get("/p").mock(
             return_value=httpx.Response(404, json=problem_json(status=404, title="Not Found"))
         )
-        with pytest.raises(CerberusAPIError) as exc:
+        with pytest.raises(NotFoundError) as exc:
             sync_client._request("GET", "/p")
-        # Not an Auth/Quota/Validation/RateLimit/Server subclass, just the base.
-        assert type(exc.value) is CerberusAPIError
+        # NotFoundError subclasses CerberusAPIError so broad handlers still catch it.
+        assert isinstance(exc.value, CerberusAPIError)
+        assert exc.value.status == 404
 
 
 # ---------------------------------------------------------------------------
@@ -581,3 +583,113 @@ def test_insert_resources_marker_appears_exactly_twice() -> None:
     content = src.read_text(encoding="utf-8")
     occurrences = content.count("# INSERT RESOURCES HERE")
     assert occurrences == 2, f"Expected exactly 2 markers, found {occurrences}"
+
+
+# ---------------------------------------------------------------------------
+# Redirect-hook coverage
+# ---------------------------------------------------------------------------
+
+
+class TestInsecureRedirectLocationHook:
+    """The ``_fix_insecure_redirect_location`` hook rewrites
+    ``Location: http://…`` to ``https://…`` on redirects whose original
+    request was HTTPS. This preserves the ``Authorization`` header across
+    the Cloudflare → FastAPI trailing-slash redirect chain that strips
+    it on cross-scheme hops.
+    """
+
+    @pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
+    def test_https_to_http_location_is_rewritten(self, status: int) -> None:
+        from cerberus_compliance.client import _fix_insecure_redirect_location
+
+        request = httpx.Request("GET", "https://staging.cerberus.cl/v1/entities")
+        response = httpx.Response(
+            status,
+            headers={"location": "http://staging.cerberus.cl/v1/entities/"},
+            request=request,
+        )
+        _fix_insecure_redirect_location(response)
+        assert response.headers["location"] == "https://staging.cerberus.cl/v1/entities/"
+
+    def test_http_origin_is_not_upgraded(self) -> None:
+        """Never upgrade ``http://`` → ``https://`` on an originally-HTTP
+        request — we might break a valid plain-HTTP dev setup."""
+        from cerberus_compliance.client import _fix_insecure_redirect_location
+
+        request = httpx.Request("GET", "http://localhost:8000/v1/entities")
+        response = httpx.Response(
+            307,
+            headers={"location": "http://localhost:8000/v1/entities/"},
+            request=request,
+        )
+        _fix_insecure_redirect_location(response)
+        assert response.headers["location"] == "http://localhost:8000/v1/entities/"
+
+    def test_relative_location_is_untouched(self) -> None:
+        from cerberus_compliance.client import _fix_insecure_redirect_location
+
+        request = httpx.Request("GET", "https://staging.cerberus.cl/v1/entities")
+        response = httpx.Response(
+            307,
+            headers={"location": "/v1/entities/"},
+            request=request,
+        )
+        _fix_insecure_redirect_location(response)
+        assert response.headers["location"] == "/v1/entities/"
+
+    def test_non_redirect_status_is_noop(self) -> None:
+        from cerberus_compliance.client import _fix_insecure_redirect_location
+
+        request = httpx.Request("GET", "https://staging.cerberus.cl/v1/entities")
+        response = httpx.Response(
+            200,
+            headers={"location": "http://example.com/"},
+            request=request,
+        )
+        _fix_insecure_redirect_location(response)
+        # Location header is irrelevant on a 200; but the hook must not rewrite it either.
+        assert response.headers["location"] == "http://example.com/"
+
+    def test_missing_location_header_is_noop(self) -> None:
+        from cerberus_compliance.client import _fix_insecure_redirect_location
+
+        request = httpx.Request("GET", "https://staging.cerberus.cl/v1/entities")
+        response = httpx.Response(307, request=request)
+        _fix_insecure_redirect_location(response)
+        assert "location" not in response.headers
+
+    async def test_async_hook_delegates_to_sync(self) -> None:
+        from cerberus_compliance.client import _fix_insecure_redirect_location_async
+
+        request = httpx.Request("GET", "https://staging.cerberus.cl/v1/entities")
+        response = httpx.Response(
+            307,
+            headers={"location": "http://staging.cerberus.cl/v1/entities/"},
+            request=request,
+        )
+        await _fix_insecure_redirect_location_async(response)
+        assert response.headers["location"] == "https://staging.cerberus.cl/v1/entities/"
+
+    def test_default_http_client_has_follow_redirects_enabled(
+        self, api_key: str, base_url: str
+    ) -> None:
+        """Regression: both sync and async client's default httpx client must
+        have ``follow_redirects=True`` — otherwise every ``/v1/entities``
+        call raises on the FastAPI trailing-slash 307 instead of following
+        it."""
+        sync = CerberusClient(api_key=api_key, base_url=base_url)
+        try:
+            assert sync._http.follow_redirects is True
+        finally:
+            sync.close()
+
+    async def test_async_default_http_client_has_follow_redirects_enabled(
+        self, api_key: str, base_url: str
+    ) -> None:
+        from cerberus_compliance.client import AsyncCerberusClient
+
+        async_ = AsyncCerberusClient(api_key=api_key, base_url=base_url)
+        try:
+            assert async_._http.follow_redirects is True
+        finally:
+            await async_.close()

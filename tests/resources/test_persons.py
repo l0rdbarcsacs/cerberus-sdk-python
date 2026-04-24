@@ -1,91 +1,112 @@
-"""TDD tests for :mod:`cerberus_compliance.resources.persons`.
+"""Tests for :mod:`cerberus_compliance.resources.persons`.
 
-Covers :class:`PersonsResource` and :class:`AsyncPersonsResource`: the
-``list`` / ``get`` / ``regulatory_profile`` / ``iter_all`` surface,
-cursor pagination, filter forwarding, and propagation of API errors
-(4xx / 429) up the call stack.
+Post-v0.2.0 the ``/persons`` collection + detail endpoints never shipped
+on the prod API; only ``/v1/persons/{rut}/regulatory-profile`` is real.
+:class:`PersonsResource` therefore behaves as a partial deprecation shim
+(same pattern as :mod:`cerberus_compliance.resources.registries`):
+
+- Construction is silent — neither the resource nor the parent
+  ``CerberusClient`` emit a :class:`DeprecationWarning` on
+  instantiation.
+- :meth:`list` / :meth:`get` / :meth:`iter_all` emit a
+  :class:`DeprecationWarning` when called, then raise
+  :class:`NotImplementedError` with a migration message pointing at
+  :meth:`regulatory_profile` and :meth:`EntitiesResource.directors`.
+- :meth:`regulatory_profile` keeps working — it's the only real endpoint
+  in the family and still percent-encodes its path segment.
 """
 
 from __future__ import annotations
 
-from typing import Any
+import warnings
 
 import httpx
 import pytest
 import respx
 
 from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
-from cerberus_compliance.errors import CerberusAPIError, RateLimitError
+from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 from cerberus_compliance.resources.persons import AsyncPersonsResource, PersonsResource
-from cerberus_compliance.retry import RetryConfig
+
+
+class TestPersonsClassMeta:
+    def test_path_prefix_is_persons(self) -> None:
+        assert PersonsResource._path_prefix == "/persons"
+        assert AsyncPersonsResource._path_prefix == "/persons"
+
+    def test_is_subclass_of_base_resource(self) -> None:
+        assert issubclass(PersonsResource, BaseResource)
+        assert issubclass(AsyncPersonsResource, AsyncBaseResource)
+
 
 # ---------------------------------------------------------------------------
-# Sync tests
+# Construction silence
 # ---------------------------------------------------------------------------
 
 
-class TestSyncPersonsResource:
-    def test_list_no_params(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+class TestPersonsConstructionIsSilent:
+    def test_sync_resource_construction_is_silent(self, sync_client: CerberusClient) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            PersonsResource(sync_client)
+
+    async def test_async_resource_construction_is_silent(
+        self, async_client: AsyncCerberusClient
     ) -> None:
-        route = respx_mock.get("/persons").mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "p1"}, {"id": "p2"}], "next": None}
-            )
-        )
-        resource = PersonsResource(sync_client)
-        assert resource.list() == [{"id": "p1"}, {"id": "p2"}]
-        assert route.called
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            AsyncPersonsResource(async_client)
 
-    def test_list_with_rut(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
-        route = respx_mock.get("/persons", params={"rut": "7890123-4"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "7890123-4"}], "next": None})
-        )
-        resource = PersonsResource(sync_client)
-        assert resource.list(rut="7890123-4") == [{"id": "7890123-4"}]
-        assert route.called
 
-    def test_list_with_limit(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        route = respx_mock.get("/persons", params={"limit": "50"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "p9"}], "next": None})
-        )
-        resource = PersonsResource(sync_client)
-        assert resource.list(limit=50) == [{"id": "p9"}]
-        assert route.called
+# ---------------------------------------------------------------------------
+# Sync deprecation semantics
+# ---------------------------------------------------------------------------
 
-    def test_list_with_both_filters(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        route = respx_mock.get("/persons", params={"rut": "7890123-4", "limit": "10"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "pZ"}], "next": None})
-        )
-        resource = PersonsResource(sync_client)
-        assert resource.list(rut="7890123-4", limit=10) == [{"id": "pZ"}]
-        assert route.called
 
-    def test_get_returns_person(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        respx_mock.get("/persons/7890123-4").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "id": "7890123-4",
-                    "name": "Jose Ignacio Concha",
-                    "nationality": "CL",
-                },
-            )
-        )
+class TestSyncPersonsDeprecation:
+    def test_list_warns_and_raises_not_implemented(self, sync_client: CerberusClient) -> None:
         resource = PersonsResource(sync_client)
-        assert resource.get("7890123-4") == {
-            "id": "7890123-4",
-            "name": "Jose Ignacio Concha",
-            "nationality": "CL",
-        }
+        with (
+            pytest.warns(
+                DeprecationWarning,
+                match="client.persons.list and client.persons.get",
+            ),
+            pytest.raises(NotImplementedError, match=r"is not a real API endpoint"),
+        ):
+            resource.list()
 
-    def test_regulatory_profile_returns_dict(
+    def test_list_with_filters_still_warns_and_raises(self, sync_client: CerberusClient) -> None:
+        resource = PersonsResource(sync_client)
+        with (
+            pytest.warns(DeprecationWarning, match="deprecated"),
+            pytest.raises(NotImplementedError, match=r"Will be removed in v0\.3\.0"),
+        ):
+            resource.list(rut="7890123-4", limit=5)
+
+    def test_get_warns_and_raises_not_implemented(self, sync_client: CerberusClient) -> None:
+        resource = PersonsResource(sync_client)
+        with (
+            pytest.warns(DeprecationWarning, match="deprecated"),
+            pytest.raises(NotImplementedError, match=r"regulatory_profile"),
+        ):
+            resource.get("7890123-4")
+
+    def test_iter_all_warns_and_raises_not_implemented(self, sync_client: CerberusClient) -> None:
+        resource = PersonsResource(sync_client)
+        with (
+            pytest.warns(DeprecationWarning, match="deprecated"),
+            pytest.raises(NotImplementedError),
+        ):
+            resource.iter_all()
+
+
+# ---------------------------------------------------------------------------
+# regulatory_profile (only real endpoint) — sync. MUST NOT warn.
+# ---------------------------------------------------------------------------
+
+
+class TestSyncPersonsRegulatoryProfile:
+    def test_regulatory_profile_returns_dict_without_warning(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         profile = {
@@ -98,86 +119,11 @@ class TestSyncPersonsResource:
             return_value=httpx.Response(200, json=profile)
         )
         resource = PersonsResource(sync_client)
-        assert resource.regulatory_profile("7890123-4") == profile
+        # Live endpoint: no warning allowed.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert resource.regulatory_profile("7890123-4") == profile
         assert route.called
-
-    def test_iter_all_no_filters_paginates(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        # Specific (cursor) route registered FIRST so the dispatcher
-        # hits it before the bare subset match.
-        page2 = respx_mock.get("/persons", params={"cursor": "tok2"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "p2"}], "next": None})
-        )
-        page1 = respx_mock.get("/persons", params={}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "p1"}], "next": "tok2"})
-        )
-        resource = PersonsResource(sync_client)
-        items = list(resource.iter_all())
-        assert items == [{"id": "p1"}, {"id": "p2"}]
-        assert page1.called
-        assert page2.called
-
-    def test_iter_all_forwards_filters(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        page2 = respx_mock.get("/persons", params={"rut": "7890123-4", "cursor": "n2"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "b"}], "next": None})
-        )
-        page1 = respx_mock.get("/persons", params={"rut": "7890123-4"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "a"}], "next": "n2"})
-        )
-        resource = PersonsResource(sync_client)
-        items = list(resource.iter_all(rut="7890123-4"))
-        assert items == [{"id": "a"}, {"id": "b"}]
-        assert page1.called
-        assert page2.called
-
-    def test_get_propagates_404(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        respx_mock.get("/persons/missing").mock(
-            return_value=httpx.Response(
-                404,
-                json={
-                    "type": "about:blank",
-                    "title": "Not Found",
-                    "status": 404,
-                    "detail": "Person missing",
-                },
-            )
-        )
-        resource = PersonsResource(sync_client)
-        with pytest.raises(CerberusAPIError) as exc_info:
-            resource.get("missing")
-        assert exc_info.value.status == 404
-
-    def test_get_propagates_429_as_rate_limit_error(
-        self, api_key: str, base_url: str, respx_mock: respx.MockRouter
-    ) -> None:
-        # Fresh client with no retries so the 429 surfaces without delay.
-        client = CerberusClient(
-            api_key=api_key,
-            base_url=base_url,
-            retry=RetryConfig(max_attempts=1, base_delay_ms=1),
-        )
-        try:
-            respx_mock.get("/persons/rate-limited").mock(
-                return_value=httpx.Response(
-                    429,
-                    headers={"retry-after": "1"},
-                    json={"title": "Too Many Requests", "status": 429},
-                )
-            )
-            resource = PersonsResource(client)
-            with pytest.raises(RateLimitError):
-                resource.get("rate-limited")
-        finally:
-            client.close()
-
-    # ------------------------------------------------------------------
-    # Path-traversal hardening (OWASP A01)
-    # ------------------------------------------------------------------
 
     def test_path_traversal_id_is_percent_encoded(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
@@ -193,33 +139,48 @@ class TestSyncPersonsResource:
 
 
 # ---------------------------------------------------------------------------
-# Async tests
+# Async deprecation semantics
 # ---------------------------------------------------------------------------
 
 
-class TestAsyncPersonsResource:
-    async def test_async_list_returns_data(
-        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+class TestAsyncPersonsDeprecation:
+    async def test_list_warns_and_raises_not_implemented(
+        self, async_client: AsyncCerberusClient
     ) -> None:
-        respx_mock.get("/persons").mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "p0"}], "next": None})
-        )
         resource = AsyncPersonsResource(async_client)
-        assert await resource.list() == [{"id": "p0"}]
+        with (
+            pytest.warns(
+                DeprecationWarning,
+                match="client.persons.list and client.persons.get",
+            ),
+            pytest.raises(NotImplementedError, match=r"is not a real API endpoint"),
+        ):
+            await resource.list()
 
-    async def test_async_get_returns_person(
-        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    async def test_get_warns_and_raises_not_implemented(
+        self, async_client: AsyncCerberusClient
     ) -> None:
-        respx_mock.get("/persons/7890123-4").mock(
-            return_value=httpx.Response(200, json={"id": "7890123-4", "name": "Jane Roe"})
-        )
         resource = AsyncPersonsResource(async_client)
-        assert await resource.get("7890123-4") == {
-            "id": "7890123-4",
-            "name": "Jane Roe",
-        }
+        with (
+            pytest.warns(DeprecationWarning, match="deprecated"),
+            pytest.raises(NotImplementedError),
+        ):
+            await resource.get("7890123-4")
 
-    async def test_async_regulatory_profile_returns_dict(
+    async def test_iter_all_warns_and_raises_not_implemented(
+        self, async_client: AsyncCerberusClient
+    ) -> None:
+        resource = AsyncPersonsResource(async_client)
+        with (
+            pytest.warns(DeprecationWarning, match="deprecated"),
+            pytest.raises(NotImplementedError),
+        ):
+            # Plain non-async method raises immediately before returning iterator.
+            resource.iter_all()
+
+
+class TestAsyncPersonsRegulatoryProfile:
+    async def test_regulatory_profile_returns_dict_without_warning(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         profile = {"pep": False, "score": 7, "watchlists": []}
@@ -227,50 +188,9 @@ class TestAsyncPersonsResource:
             return_value=httpx.Response(200, json=profile)
         )
         resource = AsyncPersonsResource(async_client)
-        assert await resource.regulatory_profile("7890123-4") == profile
-
-    async def test_async_iter_all_paginates(
-        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        respx_mock.get("/persons", params={"cursor": "tok2"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": 2}], "next": None})
-        )
-        respx_mock.get("/persons", params={}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": 1}], "next": "tok2"})
-        )
-        resource = AsyncPersonsResource(async_client)
-        collected: list[dict[str, Any]] = []
-        async for item in resource.iter_all():
-            collected.append(item)
-        assert collected == [{"id": 1}, {"id": 2}]
-
-    async def test_async_iter_all_forwards_filters(
-        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        respx_mock.get("/persons", params={"rut": "7890123-4", "cursor": "n2"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "b"}], "next": None})
-        )
-        respx_mock.get("/persons", params={"rut": "7890123-4"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "a"}], "next": "n2"})
-        )
-        resource = AsyncPersonsResource(async_client)
-        collected: list[dict[str, Any]] = []
-        async for item in resource.iter_all(rut="7890123-4"):
-            collected.append(item)
-        assert collected == [{"id": "a"}, {"id": "b"}]
-
-    async def test_async_list_with_filters(
-        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        respx_mock.get("/persons", params={"rut": "7890123-4", "limit": "5"}).mock(
-            return_value=httpx.Response(200, json={"data": [{"id": "pZ"}], "next": None})
-        )
-        resource = AsyncPersonsResource(async_client)
-        assert await resource.list(rut="7890123-4", limit=5) == [{"id": "pZ"}]
-
-    # ------------------------------------------------------------------
-    # Path-traversal hardening (OWASP A01)
-    # ------------------------------------------------------------------
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert await resource.regulatory_profile("7890123-4") == profile
 
     async def test_path_traversal_id_is_percent_encoded(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter

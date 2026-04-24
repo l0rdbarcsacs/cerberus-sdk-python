@@ -3,10 +3,28 @@
 Persons are Chilean natural persons (``personas naturales``), identified
 by their RUT. This module exposes the synchronous
 :class:`PersonsResource` and its asynchronous mirror
-:class:`AsyncPersonsResource`; both delegate to the shared base classes
-in :mod:`cerberus_compliance.resources._base`.
+:class:`AsyncPersonsResource`.
 
-The ``/persons/<id>/regulatory-profile`` endpoint returns a single
+Only the ``/persons/{rut}/regulatory-profile`` endpoint is actually
+exposed by the prod Cerberus Compliance API. The pre-v0.2.0
+``/persons`` collection and ``/persons/{id}`` detail endpoints never
+shipped, so :meth:`PersonsResource.list` / :meth:`PersonsResource.get`
+are deprecated compatibility shims in v0.2.0 that emit a
+:class:`DeprecationWarning` *on first call* (not on construction) and
+raise :class:`NotImplementedError` when called. Keeping
+``CerberusClient()`` silent lets partner SDK users who never touch the
+deprecated surface avoid spurious warnings on import. The shims will
+be removed in v0.3.0 — see the CHANGELOG ``Deprecated`` subsection.
+
+Migration paths for enumerating personas:
+
+- :meth:`cerberus_compliance.resources.entities.EntitiesResource.directors`
+  returns the directors of a given entity (natural persons tied to a
+  legal entity via ``GET /v1/entities/{id}/directors``).
+- :meth:`PersonsResource.regulatory_profile` accepts a known RUT
+  directly and returns the full compliance profile.
+
+The ``/persons/<rut>/regulatory-profile`` endpoint returns a single
 object (not a ``{"data": [...]}`` envelope) describing the person's
 compliance-risk signals — PEP status, sanctions score, watchlist hits,
 etc. — and is returned verbatim to the caller.
@@ -15,6 +33,7 @@ etc. — and is returned verbatim to the caller.
 from __future__ import annotations
 
 import builtins
+import warnings
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
 from urllib.parse import quote
@@ -23,9 +42,43 @@ from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 
 __all__ = ["AsyncPersonsResource", "PersonsResource"]
 
+_DEPRECATION_MSG = (
+    "client.persons.list and client.persons.get are deprecated and will be removed "
+    "in v0.3.0. The prod API does not expose /v1/persons or /v1/persons/{id}; only "
+    "/v1/persons/{rut}/regulatory-profile is real. Use "
+    "client.persons.regulatory_profile(rut) with a known RUT, or "
+    "client.entities.directors(id) to enumerate personas tied to an entity."
+)
+_REMOVAL_MSG = (
+    "/v1/persons[/...] is not a real API endpoint; use "
+    "client.persons.regulatory_profile(rut) with a known RUT or "
+    "client.entities.directors(id) to enumerate personas via an entity. "
+    "Will be removed in v0.3.0."
+)
+
+
+def _warn_deprecated_call(name: str) -> None:
+    """Emit the standard per-call :class:`DeprecationWarning` for the shim.
+
+    Factored into a helper so every deprecated method in both the sync
+    and async shims uses the exact same message + stacklevel — keeping
+    the user-visible warning text stable for downstream filter rules.
+    """
+    warnings.warn(
+        _DEPRECATION_MSG + f" (hit via client.persons.{name})",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
 
 class PersonsResource(BaseResource):
-    """Synchronous accessor for the ``/persons`` endpoint family."""
+    """Synchronous accessor for the ``/persons`` endpoint family.
+
+    Only :meth:`regulatory_profile` hits a real production endpoint.
+    :meth:`list` and :meth:`get` are deprecated shims that raise
+    :class:`NotImplementedError`; see the module docstring for the
+    migration paths.
+    """
 
     _path_prefix = "/persons"
 
@@ -35,22 +88,19 @@ class PersonsResource(BaseResource):
         rut: str | None = None,
         limit: int | None = None,
     ) -> builtins.list[dict[str, Any]]:
-        """Return the first page of persons, optionally filtered.
+        """Deprecated: no-op. Raises :class:`NotImplementedError`.
 
-        Args:
-            rut: Chilean RUT filter (e.g. ``"7890123-4"``).
-            limit: Maximum number of persons to return on this page.
+        Emits a :class:`DeprecationWarning` before raising so callers
+        running under ``-W error::DeprecationWarning`` see the warning
+        path rather than a naked :class:`NotImplementedError`.
         """
-        params: dict[str, Any] = {}
-        if rut is not None:
-            params["rut"] = rut
-        if limit is not None:
-            params["limit"] = limit
-        return self._list(params=params or None)
+        _warn_deprecated_call("list")
+        raise NotImplementedError(_REMOVAL_MSG)
 
     def get(self, id_: str) -> dict[str, Any]:
-        """Fetch a single person by RUT (``GET /persons/<id_>``)."""
-        return self._get(id_)
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
+        raise NotImplementedError(_REMOVAL_MSG)
 
     def regulatory_profile(self, id_: str) -> dict[str, Any]:
         """Return the full compliance profile for a person.
@@ -64,14 +114,15 @@ class PersonsResource(BaseResource):
         )
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
-        """Iterate through every person, transparently paginating.
+        """Deprecated: no-op. Raises :class:`NotImplementedError`.
 
-        Forwards arbitrary ``**filters`` on every page request. Returns
-        the underlying generator directly (rather than ``yield from``)
-        so the method itself is a plain sync function that hands back a
-        generator.
+        Pagination made sense when ``/persons`` was (believed to be) a
+        listable collection. The prod API has no such endpoint, so the
+        method is a compatibility shim that surfaces a clear error
+        instead of silently hitting a 404.
         """
-        return self._iter_all(params=filters or None)
+        _warn_deprecated_call("iter_all")
+        raise NotImplementedError(_REMOVAL_MSG)
 
 
 class AsyncPersonsResource(AsyncBaseResource):
@@ -85,17 +136,14 @@ class AsyncPersonsResource(AsyncBaseResource):
         rut: str | None = None,
         limit: int | None = None,
     ) -> builtins.list[dict[str, Any]]:
-        """Async variant of :meth:`PersonsResource.list`."""
-        params: dict[str, Any] = {}
-        if rut is not None:
-            params["rut"] = rut
-        if limit is not None:
-            params["limit"] = limit
-        return await self._list(params=params or None)
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("list")
+        raise NotImplementedError(_REMOVAL_MSG)
 
     async def get(self, id_: str) -> dict[str, Any]:
-        """Async variant of :meth:`PersonsResource.get`."""
-        return await self._get(id_)
+        """Deprecated: no-op. Raises :class:`NotImplementedError`."""
+        _warn_deprecated_call("get")
+        raise NotImplementedError(_REMOVAL_MSG)
 
     async def regulatory_profile(self, id_: str) -> dict[str, Any]:
         """Async variant of :meth:`PersonsResource.regulatory_profile`."""
@@ -104,10 +152,10 @@ class AsyncPersonsResource(AsyncBaseResource):
         )
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
-        """Async iterator over every person; mirror of :meth:`PersonsResource.iter_all`.
+        """Deprecated: no-op. Raises :class:`NotImplementedError`.
 
-        Intentionally a non-``async`` method that returns the underlying
-        async generator directly, so callers can write ``async for`` at
-        the call site without an extra ``await``.
+        Plain non-``async`` method so the raise fires immediately at
+        call time, matching the sync mirror's semantics.
         """
-        return self._iter_all(params=filters or None)
+        _warn_deprecated_call("iter_all")
+        raise NotImplementedError(_REMOVAL_MSG)
