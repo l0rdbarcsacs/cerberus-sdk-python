@@ -85,4 +85,7 @@ jobs:
       - name: Smoke against staging
         env:
           CERBERUS_STAGING_KEY: ${{ secrets.CERBERUS_STAGING_KEY }}
-        run: pytest tests/integration/ -q
+        # --no-cov disables the 95% coverage gate from pyproject.toml addopts:
+        # integration tests only exercise live-API paths (~64% cov); the gate
+        # is enforced by the unit-test matrix above, not by this smoke job.
+        run: pytest tests/integration/ -q --no-cov
