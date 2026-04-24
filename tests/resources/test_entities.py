@@ -38,9 +38,7 @@ class TestSyncEntitiesResource:
         assert resource.list() == [{"id": "e1"}, {"id": "e2"}]
         assert route.called
 
-    def test_list_with_rut(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_list_with_rut(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
         route = respx_mock.get("/entities", params={"rut": "76123456-7"}).mock(
             return_value=httpx.Response(200, json={"data": [{"id": "e1"}], "next": None})
         )
@@ -61,9 +59,7 @@ class TestSyncEntitiesResource:
     def test_list_with_all_filters(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        route = respx_mock.get(
-            "/entities", params={"rut": "76123456-7", "limit": "10"}
-        ).mock(
+        route = respx_mock.get("/entities", params={"rut": "76123456-7", "limit": "10"}).mock(
             return_value=httpx.Response(200, json={"data": [{"id": "eZ"}], "next": None})
         )
         resource = EntitiesResource(sync_client)
@@ -74,9 +70,7 @@ class TestSyncEntitiesResource:
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/entities/76123456-7").mock(
-            return_value=httpx.Response(
-                200, json={"id": "76123456-7", "name": "Acme SpA"}
-            )
+            return_value=httpx.Response(200, json={"id": "76123456-7", "name": "Acme SpA"})
         )
         resource = EntitiesResource(sync_client)
         assert resource.get("76123456-7") == {"id": "76123456-7", "name": "Acme SpA"}
@@ -115,9 +109,7 @@ class TestSyncEntitiesResource:
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/entities/76123456-7/material-events").mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"ok": 1}, "bad", 42]}
-            )
+            return_value=httpx.Response(200, json={"data": [{"ok": 1}, "bad", 42]})
         )
         resource = EntitiesResource(sync_client)
         assert resource.material_events("76123456-7") == [{"ok": 1}]
@@ -135,9 +127,7 @@ class TestSyncEntitiesResource:
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/entities/76123456-7/directors").mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"name": "Jane"}, {"name": "John"}]}
-            )
+            return_value=httpx.Response(200, json={"data": [{"name": "Jane"}, {"name": "John"}]})
         )
         resource = EntitiesResource(sync_client)
         assert resource.directors("76123456-7") == [
@@ -160,14 +150,10 @@ class TestSyncEntitiesResource:
         # Specific (cursor) route registered FIRST so the dispatcher hits
         # it before the bare subset match.
         page2 = respx_mock.get("/entities", params={"cursor": "tok2"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "e2"}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "e2"}], "next": None})
         )
         page1 = respx_mock.get("/entities", params={}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "e1"}], "next": "tok2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "e1"}], "next": "tok2"})
         )
         resource = EntitiesResource(sync_client)
         items = list(resource.iter_all())
@@ -178,17 +164,11 @@ class TestSyncEntitiesResource:
     def test_iter_all_forwards_filters(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        page2 = respx_mock.get(
-            "/entities", params={"rut": "76123456-7", "cursor": "n2"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "b"}], "next": None}
-            )
+        page2 = respx_mock.get("/entities", params={"rut": "76123456-7", "cursor": "n2"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "b"}], "next": None})
         )
         page1 = respx_mock.get("/entities", params={"rut": "76123456-7"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "a"}], "next": "n2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "a"}], "next": "n2"})
         )
         resource = EntitiesResource(sync_client)
         items = list(resource.iter_all(rut="76123456-7"))
@@ -250,9 +230,7 @@ class TestAsyncEntitiesResource:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/entities", params={"rut": "76123456-7"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "e1"}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "e1"}], "next": None})
         )
         resource = AsyncEntitiesResource(async_client)
         assert await resource.list(rut="76123456-7") == [{"id": "e1"}]
@@ -260,9 +238,7 @@ class TestAsyncEntitiesResource:
     async def test_async_list_with_all_filters(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get(
-            "/entities", params={"rut": "76123456-7", "limit": "5"}
-        ).mock(
+        respx_mock.get("/entities", params={"rut": "76123456-7", "limit": "5"}).mock(
             return_value=httpx.Response(200, json={"data": [{"id": "eZ"}], "next": None})
         )
         resource = AsyncEntitiesResource(async_client)
@@ -308,9 +284,7 @@ class TestAsyncEntitiesResource:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/entities/76123456-7/sanctions").mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "s1"}, "skip-me", 99]}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "s1"}, "skip-me", 99]})
         )
         resource = AsyncEntitiesResource(async_client)
         assert await resource.sanctions("76123456-7") == [{"id": "s1"}]
@@ -337,14 +311,10 @@ class TestAsyncEntitiesResource:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/entities", params={"cursor": "tok2"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": 2}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": 2}], "next": None})
         )
         respx_mock.get("/entities", params={}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": 1}], "next": "tok2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": 1}], "next": "tok2"})
         )
         resource = AsyncEntitiesResource(async_client)
         collected: list[dict[str, Any]] = []
@@ -355,17 +325,11 @@ class TestAsyncEntitiesResource:
     async def test_async_iter_all_forwards_filters(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get(
-            "/entities", params={"rut": "76123456-7", "cursor": "n2"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "b"}], "next": None}
-            )
+        respx_mock.get("/entities", params={"rut": "76123456-7", "cursor": "n2"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "b"}], "next": None})
         )
         respx_mock.get("/entities", params={"rut": "76123456-7"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "a"}], "next": "n2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "a"}], "next": "n2"})
         )
         resource = AsyncEntitiesResource(async_client)
         collected: list[dict[str, Any]] = []

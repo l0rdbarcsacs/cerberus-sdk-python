@@ -37,13 +37,9 @@ class TestSyncPersonsResource:
         assert resource.list() == [{"id": "p1"}, {"id": "p2"}]
         assert route.called
 
-    def test_list_with_rut(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_list_with_rut(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
         route = respx_mock.get("/persons", params={"rut": "7890123-4"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "7890123-4"}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "7890123-4"}], "next": None})
         )
         resource = PersonsResource(sync_client)
         assert resource.list(rut="7890123-4") == [{"id": "7890123-4"}]
@@ -53,9 +49,7 @@ class TestSyncPersonsResource:
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         route = respx_mock.get("/persons", params={"limit": "50"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "p9"}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "p9"}], "next": None})
         )
         resource = PersonsResource(sync_client)
         assert resource.list(limit=50) == [{"id": "p9"}]
@@ -64,12 +58,8 @@ class TestSyncPersonsResource:
     def test_list_with_both_filters(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        route = respx_mock.get(
-            "/persons", params={"rut": "7890123-4", "limit": "10"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "pZ"}], "next": None}
-            )
+        route = respx_mock.get("/persons", params={"rut": "7890123-4", "limit": "10"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "pZ"}], "next": None})
         )
         resource = PersonsResource(sync_client)
         assert resource.list(rut="7890123-4", limit=10) == [{"id": "pZ"}]
@@ -117,14 +107,10 @@ class TestSyncPersonsResource:
         # Specific (cursor) route registered FIRST so the dispatcher
         # hits it before the bare subset match.
         page2 = respx_mock.get("/persons", params={"cursor": "tok2"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "p2"}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "p2"}], "next": None})
         )
         page1 = respx_mock.get("/persons", params={}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "p1"}], "next": "tok2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "p1"}], "next": "tok2"})
         )
         resource = PersonsResource(sync_client)
         items = list(resource.iter_all())
@@ -135,17 +121,11 @@ class TestSyncPersonsResource:
     def test_iter_all_forwards_filters(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        page2 = respx_mock.get(
-            "/persons", params={"rut": "7890123-4", "cursor": "n2"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "b"}], "next": None}
-            )
+        page2 = respx_mock.get("/persons", params={"rut": "7890123-4", "cursor": "n2"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "b"}], "next": None})
         )
         page1 = respx_mock.get("/persons", params={"rut": "7890123-4"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "a"}], "next": "n2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "a"}], "next": "n2"})
         )
         resource = PersonsResource(sync_client)
         items = list(resource.iter_all(rut="7890123-4"))
@@ -206,9 +186,7 @@ class TestAsyncPersonsResource:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/persons").mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "p0"}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "p0"}], "next": None})
         )
         resource = AsyncPersonsResource(async_client)
         assert await resource.list() == [{"id": "p0"}]
@@ -217,9 +195,7 @@ class TestAsyncPersonsResource:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/persons/7890123-4").mock(
-            return_value=httpx.Response(
-                200, json={"id": "7890123-4", "name": "Jane Roe"}
-            )
+            return_value=httpx.Response(200, json={"id": "7890123-4", "name": "Jane Roe"})
         )
         resource = AsyncPersonsResource(async_client)
         assert await resource.get("7890123-4") == {
@@ -241,14 +217,10 @@ class TestAsyncPersonsResource:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/persons", params={"cursor": "tok2"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": 2}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": 2}], "next": None})
         )
         respx_mock.get("/persons", params={}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": 1}], "next": "tok2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": 1}], "next": "tok2"})
         )
         resource = AsyncPersonsResource(async_client)
         collected: list[dict[str, Any]] = []
@@ -259,17 +231,11 @@ class TestAsyncPersonsResource:
     async def test_async_iter_all_forwards_filters(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get(
-            "/persons", params={"rut": "7890123-4", "cursor": "n2"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "b"}], "next": None}
-            )
+        respx_mock.get("/persons", params={"rut": "7890123-4", "cursor": "n2"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "b"}], "next": None})
         )
         respx_mock.get("/persons", params={"rut": "7890123-4"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "a"}], "next": "n2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "a"}], "next": "n2"})
         )
         resource = AsyncPersonsResource(async_client)
         collected: list[dict[str, Any]] = []
@@ -280,12 +246,8 @@ class TestAsyncPersonsResource:
     async def test_async_list_with_filters(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get(
-            "/persons", params={"rut": "7890123-4", "limit": "5"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "pZ"}], "next": None}
-            )
+        respx_mock.get("/persons", params={"rut": "7890123-4", "limit": "5"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "pZ"}], "next": None})
         )
         resource = AsyncPersonsResource(async_client)
         assert await resource.list(rut="7890123-4", limit=5) == [{"id": "pZ"}]

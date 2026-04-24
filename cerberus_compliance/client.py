@@ -30,6 +30,18 @@ import httpx
 
 from cerberus_compliance.auth import ApiKeyAuth, resolve_api_key
 from cerberus_compliance.errors import CerberusAPIError
+from cerberus_compliance.resources.entities import (
+    AsyncEntitiesResource,
+    EntitiesResource,
+)
+from cerberus_compliance.resources.material_events import (
+    AsyncMaterialEventsResource,
+    MaterialEventsResource,
+)
+from cerberus_compliance.resources.persons import (
+    AsyncPersonsResource,
+    PersonsResource,
+)
 from cerberus_compliance.retry import RetryConfig, backoff_seconds, should_retry
 
 __all__ = [
@@ -102,6 +114,9 @@ class CerberusClient:
             timeout=timeout,
             auth=ApiKeyAuth(self.api_key),
         )
+        self.entities: EntitiesResource = EntitiesResource(self)
+        self.persons: PersonsResource = PersonsResource(self)
+        self.material_events: MaterialEventsResource = MaterialEventsResource(self)
         # Sub-resources are wired below by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
@@ -245,6 +260,9 @@ class AsyncCerberusClient:
             timeout=timeout,
             auth=ApiKeyAuth(self.api_key),
         )
+        self.entities: AsyncEntitiesResource = AsyncEntitiesResource(self)
+        self.persons: AsyncPersonsResource = AsyncPersonsResource(self)
+        self.material_events: AsyncMaterialEventsResource = AsyncMaterialEventsResource(self)
         # Sub-resources are wired below by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 

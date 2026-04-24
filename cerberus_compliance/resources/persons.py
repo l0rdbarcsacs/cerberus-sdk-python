@@ -58,9 +58,7 @@ class PersonsResource(BaseResource):
         returns a single object (not a list envelope), so the parsed
         body is returned as-is.
         """
-        return self._client._request(
-            "GET", f"{self._path_prefix}/{id_}/regulatory-profile"
-        )
+        return self._client._request("GET", f"{self._path_prefix}/{id_}/regulatory-profile")
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Iterate through every person, transparently paginating.
@@ -98,9 +96,7 @@ class AsyncPersonsResource(AsyncBaseResource):
 
     async def regulatory_profile(self, id_: str) -> dict[str, Any]:
         """Async variant of :meth:`PersonsResource.regulatory_profile`."""
-        return await self._client._request(
-            "GET", f"{self._path_prefix}/{id_}/regulatory-profile"
-        )
+        return await self._client._request("GET", f"{self._path_prefix}/{id_}/regulatory-profile")
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async iterator over every person; mirror of :meth:`PersonsResource.iter_all`.

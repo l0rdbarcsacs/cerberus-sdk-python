@@ -45,12 +45,8 @@ class TestSyncMaterialEventsResource:
     def test_list_with_entity_id(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        route = respx_mock.get(
-            "/material-events", params={"entity_id": "76123456-7"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "evt1"}], "next": None}
-            )
+        route = respx_mock.get("/material-events", params={"entity_id": "76123456-7"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "evt1"}], "next": None})
         )
         resource = MaterialEventsResource(sync_client)
         assert resource.list(entity_id="76123456-7") == [{"id": "evt1"}]
@@ -59,12 +55,8 @@ class TestSyncMaterialEventsResource:
     def test_list_with_since_string(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        route = respx_mock.get(
-            "/material-events", params={"since": "2026-01-01T00:00:00Z"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "evtA"}], "next": None}
-            )
+        route = respx_mock.get("/material-events", params={"since": "2026-01-01T00:00:00Z"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "evtA"}], "next": None})
         )
         resource = MaterialEventsResource(sync_client)
         assert resource.list(since="2026-01-01T00:00:00Z") == [{"id": "evtA"}]
@@ -75,11 +67,7 @@ class TestSyncMaterialEventsResource:
     ) -> None:
         route = respx_mock.get(
             "/material-events", params={"since": "2026-01-01T00:00:00+00:00"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "evtB"}], "next": None}
-            )
-        )
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "evtB"}], "next": None}))
         resource = MaterialEventsResource(sync_client)
         result = resource.list(since=datetime(2026, 1, 1, tzinfo=timezone.utc))
         assert result == [{"id": "evtB"}]
@@ -90,11 +78,7 @@ class TestSyncMaterialEventsResource:
     ) -> None:
         route = respx_mock.get(
             "/material-events", params={"until": "2026-04-01T00:00:00+00:00"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "evtC"}], "next": None}
-            )
-        )
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "evtC"}], "next": None}))
         resource = MaterialEventsResource(sync_client)
         result = resource.list(until=datetime(2026, 4, 1, tzinfo=timezone.utc))
         assert result == [{"id": "evtC"}]
@@ -103,12 +87,8 @@ class TestSyncMaterialEventsResource:
     def test_list_with_limit(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        route = respx_mock.get(
-            "/material-events", params={"limit": "10"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "evtD"}], "next": None}
-            )
+        route = respx_mock.get("/material-events", params={"limit": "10"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "evtD"}], "next": None})
         )
         resource = MaterialEventsResource(sync_client)
         assert resource.list(limit=10) == [{"id": "evtD"}]
@@ -125,11 +105,7 @@ class TestSyncMaterialEventsResource:
                 "until": "2026-04-01T00:00:00Z",
                 "limit": "50",
             },
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "evtAll"}], "next": None}
-            )
-        )
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "evtAll"}], "next": None}))
         resource = MaterialEventsResource(sync_client)
         result = resource.list(
             entity_id="76123456-7",
@@ -144,9 +120,7 @@ class TestSyncMaterialEventsResource:
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/material-events/evt_abc").mock(
-            return_value=httpx.Response(
-                200, json={"id": "evt_abc", "headline": "Profit warning"}
-            )
+            return_value=httpx.Response(200, json={"id": "evt_abc", "headline": "Profit warning"})
         )
         resource = MaterialEventsResource(sync_client)
         assert resource.get("evt_abc") == {
@@ -160,17 +134,11 @@ class TestSyncMaterialEventsResource:
         # Register the more specific (cursor) route FIRST — respx matches
         # params as a subset, so ``params={}`` would otherwise swallow the
         # cursor request.
-        page2 = respx_mock.get(
-            "/material-events", params={"cursor": "tok2"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "e2"}], "next": None}
-            )
+        page2 = respx_mock.get("/material-events", params={"cursor": "tok2"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "e2"}], "next": None})
         )
         page1 = respx_mock.get("/material-events", params={}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "e1"}], "next": "tok2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "e1"}], "next": "tok2"})
         )
         resource = MaterialEventsResource(sync_client)
         items = list(resource.iter_all())
@@ -184,17 +152,9 @@ class TestSyncMaterialEventsResource:
         page2 = respx_mock.get(
             "/material-events",
             params={"entity_id": "76123456-7", "cursor": "n2"},
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "b"}], "next": None}
-            )
-        )
-        page1 = respx_mock.get(
-            "/material-events", params={"entity_id": "76123456-7"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "a"}], "next": "n2"}
-            )
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "b"}], "next": None}))
+        page1 = respx_mock.get("/material-events", params={"entity_id": "76123456-7"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "a"}], "next": "n2"})
         )
         resource = MaterialEventsResource(sync_client)
         items = list(resource.iter_all(entity_id="76123456-7"))
@@ -206,17 +166,11 @@ class TestSyncMaterialEventsResource:
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         iso = "2026-01-01T00:00:00+00:00"
-        route = respx_mock.get(
-            "/material-events", params={"since": iso}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "only"}], "next": None}
-            )
+        route = respx_mock.get("/material-events", params={"since": iso}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "only"}], "next": None})
         )
         resource = MaterialEventsResource(sync_client)
-        items = list(
-            resource.iter_all(since=datetime(2026, 1, 1, tzinfo=timezone.utc))
-        )
+        items = list(resource.iter_all(since=datetime(2026, 1, 1, tzinfo=timezone.utc)))
         assert items == [{"id": "only"}]
         assert route.called
 
@@ -272,12 +226,8 @@ class TestAsyncMaterialEventsResource:
     async def test_async_list_returns_data(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get(
-            "/material-events", params={"entity_id": "76123456-7"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "e1"}], "next": None}
-            )
+        respx_mock.get("/material-events", params={"entity_id": "76123456-7"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "e1"}], "next": None})
         )
         resource = AsyncMaterialEventsResource(async_client)
         assert await resource.list(entity_id="76123456-7") == [{"id": "e1"}]
@@ -288,15 +238,9 @@ class TestAsyncMaterialEventsResource:
         respx_mock.get(
             "/material-events",
             params={"since": "2026-01-01T00:00:00+00:00"},
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "iso"}], "next": None}
-            )
-        )
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "iso"}], "next": None}))
         resource = AsyncMaterialEventsResource(async_client)
-        result = await resource.list(
-            since=datetime(2026, 1, 1, tzinfo=timezone.utc)
-        )
+        result = await resource.list(since=datetime(2026, 1, 1, tzinfo=timezone.utc))
         assert result == [{"id": "iso"}]
 
     async def test_async_list_with_until_and_limit(
@@ -305,11 +249,7 @@ class TestAsyncMaterialEventsResource:
         respx_mock.get(
             "/material-events",
             params={"until": "2026-04-01T00:00:00Z", "limit": "3"},
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "ul"}], "next": None}
-            )
-        )
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "ul"}], "next": None}))
         resource = AsyncMaterialEventsResource(async_client)
         result = await resource.list(until="2026-04-01T00:00:00Z", limit=3)
         assert result == [{"id": "ul"}]
@@ -327,14 +267,10 @@ class TestAsyncMaterialEventsResource:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/material-events", params={"cursor": "tok2"}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": 2}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": 2}], "next": None})
         )
         respx_mock.get("/material-events", params={}).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": 1}], "next": "tok2"}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": 1}], "next": "tok2"})
         )
         resource = AsyncMaterialEventsResource(async_client)
         collected: list[dict[str, Any]] = []
@@ -348,17 +284,9 @@ class TestAsyncMaterialEventsResource:
         respx_mock.get(
             "/material-events",
             params={"entity_id": "76123456-7", "cursor": "n2"},
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "b"}], "next": None}
-            )
-        )
-        respx_mock.get(
-            "/material-events", params={"entity_id": "76123456-7"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "a"}], "next": "n2"}
-            )
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "b"}], "next": None}))
+        respx_mock.get("/material-events", params={"entity_id": "76123456-7"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "a"}], "next": "n2"})
         )
         resource = AsyncMaterialEventsResource(async_client)
         collected: list[dict[str, Any]] = []
@@ -370,24 +298,14 @@ class TestAsyncMaterialEventsResource:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         iso = "2026-01-01T00:00:00+00:00"
-        respx_mock.get(
-            "/material-events", params={"since": iso, "cursor": "c2"}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "p2"}], "next": None}
-            )
+        respx_mock.get("/material-events", params={"since": iso, "cursor": "c2"}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "p2"}], "next": None})
         )
-        respx_mock.get(
-            "/material-events", params={"since": iso}
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "p1"}], "next": "c2"}
-            )
+        respx_mock.get("/material-events", params={"since": iso}).mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "p1"}], "next": "c2"})
         )
         resource = AsyncMaterialEventsResource(async_client)
         collected: list[dict[str, Any]] = []
-        async for item in resource.iter_all(
-            since=datetime(2026, 1, 1, tzinfo=timezone.utc)
-        ):
+        async for item in resource.iter_all(since=datetime(2026, 1, 1, tzinfo=timezone.utc)):
             collected.append(item)
         assert collected == [{"id": "p1"}, {"id": "p2"}]
