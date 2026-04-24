@@ -122,6 +122,18 @@ class TestNormativaConsultaList:
         resource = NormativaConsultaResource(sync_client)
         assert resource.list() == [{"id": "x"}]
 
+    @pytest.mark.parametrize(
+        "bad_limit",
+        [0, -1, 201, 1000, True, "100"],
+    )
+    def test_list_rejects_out_of_range_limit(
+        self, sync_client: CerberusClient, bad_limit: object
+    ) -> None:
+        """Client-side limit gate: 1-200, int (rejecting bool & str sneak-ins)."""
+        resource = NormativaConsultaResource(sync_client)
+        with pytest.raises(ValueError, match=r"limit must be an int in \[1, 200\]"):
+            resource.list(limit=bad_limit)  # type: ignore[arg-type]
+
     def test_list_422_raises_validation_error(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
@@ -176,3 +188,11 @@ class TestNormativaConsultaAsync:
         ).mock(return_value=httpx.Response(200, json={"items": []}))
         resource = AsyncNormativaConsultaResource(async_client)
         assert await resource.list(estado="cerrada") == []
+
+    async def test_list_rejects_out_of_range_limit(
+        self, async_client: AsyncCerberusClient
+    ) -> None:
+        """Async mirror of the limit gate — must reject before awaiting the wire."""
+        resource = AsyncNormativaConsultaResource(async_client)
+        with pytest.raises(ValueError, match=r"limit must be an int in \[1, 200\]"):
+            await resource.list(limit=500)

@@ -53,6 +53,19 @@ def _clean_params(raw: dict[str, Any]) -> dict[str, Any] | None:
     return cleaned or None
 
 
+def _validate_limit(limit: int) -> None:
+    """Reject limits outside the documented 1-200 range before hitting the wire.
+
+    Mirrors the server's own Pydantic constraint (``Field(ge=1, le=200)``)
+    so callers get a fast-fail :class:`ValueError` with a clear message
+    instead of an opaque 422 round-trip.
+    """
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 200:
+        raise ValueError(
+            f"normativa_consulta.list: limit must be an int in [1, 200], got {limit!r}"
+        )
+
+
 class NormativaConsultaResource(BaseResource):
     """Sync accessor for the ``/normativa-consulta`` endpoint."""
 
@@ -94,6 +107,7 @@ class NormativaConsultaResource(BaseResource):
                     "updated_at": "2026-04-24T10:05:00Z"
                 }
         """
+        _validate_limit(limit)
         params = _clean_params({"estado": estado, "limit": limit, "offset": offset or None})
         return self._list(params=params)
 
@@ -110,5 +124,6 @@ class AsyncNormativaConsultaResource(AsyncBaseResource):
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Async variant of :meth:`NormativaConsultaResource.list`."""
+        _validate_limit(limit)
         params = _clean_params({"estado": estado, "limit": limit, "offset": offset or None})
         return await self._list(params=params)
