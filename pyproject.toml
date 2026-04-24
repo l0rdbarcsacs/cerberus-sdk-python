@@ -95,7 +95,7 @@ addopts = [
     "--strict-config",
     "--cov=cerberus_compliance",
     "--cov-report=term-missing",
-    "--cov-fail-under=90",
+    "--cov-fail-under=95",
 ]
 asyncio_mode = "auto"
 filterwarnings = [
@@ -108,12 +108,6 @@ branch = true
 source = ["cerberus_compliance"]
 omit = [
     "cerberus_compliance/_generated/*",
-    "cerberus_compliance/resources/entities.py",
-    "cerberus_compliance/resources/persons.py",
-    "cerberus_compliance/resources/material_events.py",
-    "cerberus_compliance/resources/sanctions.py",
-    "cerberus_compliance/resources/registries.py",
-    "cerberus_compliance/resources/regulations.py",
 ]
 
 [tool.coverage.report]

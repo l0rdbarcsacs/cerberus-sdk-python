@@ -183,6 +183,41 @@ class TestSyncBaseResource:
         things = _Things(sync_client)
         assert list(things.iter_all()) == []
 
+    @pytest.mark.parametrize(
+        "raw_id",
+        [
+            "../admin",
+            "..%2Fadmin",
+            "a/b",
+            "weird id with spaces",
+            "100%",
+            "../../etc/passwd",
+        ],
+    )
+    def test_get_percent_encodes_id(
+        self,
+        raw_id: str,
+        sync_client: CerberusClient,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        """`_get(id_)` must percent-encode the id and stay inside the path prefix.
+
+        Regression test for the path-traversal gap surfaced by the P4 audit:
+        ``f"{prefix}/{id_}"`` without encoding let ``"../admin"`` escape to
+        ``GET /admin``, bypassing the sub-resource namespace entirely.
+        """
+        route = respx_mock.get(url__regex=r"^https://mock\.test/v1/things/.+").mock(
+            return_value=httpx.Response(200, json={"id": "ok"})
+        )
+        things = _Things(sync_client)
+        things.get(raw_id)
+
+        assert route.called, "expected the encoded URL under /things/ to be hit"
+        raw_path = route.calls.last.request.url.raw_path.decode("ascii")
+        assert raw_path.startswith("/v1/things/"), f"id escaped the /things/ prefix: {raw_path!r}"
+        suffix = raw_path[len("/v1/things/") :]
+        assert "/" not in suffix, f"unencoded slash leaked into path suffix: {suffix!r}"
+
 
 # ---------------------------------------------------------------------------
 # Async tests
@@ -270,6 +305,26 @@ class TestAsyncBaseResource:
         async for item in things.iter_all():
             out.append(item)
         assert out == []
+
+    @pytest.mark.parametrize("raw_id", ["../admin", "a/b", "../../etc/passwd", "100%"])
+    async def test_get_percent_encodes_id(
+        self,
+        raw_id: str,
+        async_client: AsyncCerberusClient,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        """Async mirror of the sync path-traversal guard."""
+        route = respx_mock.get(url__regex=r"^https://mock\.test/v1/things/.+").mock(
+            return_value=httpx.Response(200, json={"id": "ok"})
+        )
+        things = _AsyncThings(async_client)
+        await things.get(raw_id)
+
+        assert route.called
+        raw_path = route.calls.last.request.url.raw_path.decode("ascii")
+        assert raw_path.startswith("/v1/things/")
+        suffix = raw_path[len("/v1/things/") :]
+        assert "/" not in suffix, f"unencoded slash leaked into path suffix: {suffix!r}"
 
 
 # ---------------------------------------------------------------------------

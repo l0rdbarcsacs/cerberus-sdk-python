@@ -11,11 +11,21 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
 from typing import TYPE_CHECKING, Any, ClassVar
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 
 __all__ = ["AsyncBaseResource", "BaseResource"]
+
+
+def _encode_id(id_: str) -> str:
+    """Percent-encode a path segment so ``"../admin"`` cannot escape the prefix.
+
+    `safe=""` ensures that ``/`` and ``%`` are also encoded — the caller is
+    always a single path segment, never a pre-built path.
+    """
+    return quote(id_, safe="")
 
 
 class BaseResource:
@@ -45,8 +55,12 @@ class BaseResource:
         return [item for item in data if isinstance(item, dict)]
 
     def _get(self, id_: str) -> dict[str, Any]:
-        """Issue ``GET <prefix>/<id>`` and return the JSON body."""
-        path = f"{self._path_prefix}/{id_}"
+        """Issue ``GET <prefix>/<id>`` and return the JSON body.
+
+        The ``id_`` is percent-encoded with :func:`_encode_id` so callers
+        can pass raw identifiers without risking path traversal.
+        """
+        path = f"{self._path_prefix}/{_encode_id(id_)}"
         return self._client._request("GET", path)
 
     def _iter_all(self, *, params: dict[str, Any] | None = None) -> Iterator[dict[str, Any]]:
@@ -101,7 +115,7 @@ class AsyncBaseResource:
 
     async def _get(self, id_: str) -> dict[str, Any]:
         """Async variant of :meth:`BaseResource._get`."""
-        path = f"{self._path_prefix}/{id_}"
+        path = f"{self._path_prefix}/{_encode_id(id_)}"
         return await self._client._request("GET", path)
 
     async def _iter_all(

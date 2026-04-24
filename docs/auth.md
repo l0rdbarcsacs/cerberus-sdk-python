@@ -103,8 +103,10 @@ client = CerberusClient(api_key="ck_live_...", http_client=my_http)
 The same hook exists on `AsyncCerberusClient` via `http_client=` accepting an
 `httpx.AsyncClient`. When you supply your own client you also own its lifecycle —
 `CerberusClient.close()` calls `http_client.close()`, so the SDK's context-manager
-semantics still work, but if you share the same `httpx` client across multiple SDK
-instances you should pass `close_httpx=False` at your own application layer.
+semantics still work. If you share the same `httpx` client across multiple SDK
+instances, build it once, wire it into each `CerberusClient` with `http_client=`,
+and call `http_client.close()` yourself at shutdown instead of using the SDK's
+context manager on every instance.
 
 ## Rotating keys
 

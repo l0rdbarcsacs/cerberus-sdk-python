@@ -40,9 +40,10 @@ import os
 from cerberus_compliance import CerberusClient
 
 with CerberusClient(api_key=os.environ["CERBERUS_API_KEY"]) as client:
-    # Once v0.1.0 GA lands resources will be at client.entities.get(...)
-    entity = client._request("GET", "/entities", params={"rut": "76.086.428-5", "limit": 1})
-    print(entity["data"][0]["legal_name"])
+    hits = client.entities.list(rut="76.086.428-5", limit=1)
+    if not hits:
+        raise SystemExit("no entity matched that RUT")
+    print(hits[0]["legal_name"])
 ```
 
 The constructor reads `CERBERUS_API_KEY` from the environment when `api_key=` is omitted,
@@ -106,8 +107,10 @@ from cerberus_compliance import AsyncCerberusClient
 
 async def main() -> None:
     async with AsyncCerberusClient() as client:
-        data = await client._request("GET", "/entities", params={"rut": "76.086.428-5"})
-        print(data["data"][0]["legal_name"])
+        hits = await client.entities.list(rut="76.086.428-5", limit=1)
+        if not hits:
+            raise SystemExit("no entity matched that RUT")
+        print(hits[0]["legal_name"])
 
 asyncio.run(main())
 ```
@@ -136,20 +139,21 @@ so you never have to hold a full result set in memory. See
 
 ## Status / roadmap
 
-`v0.1.0-rc1` is a release candidate. The transport, auth, retry, error, and pagination
-foundations are final; typed resource namespaces land across the following milestones:
+`v0.1.0-rc1` is a release candidate. The transport, auth, retry, error, pagination
+foundations **and** the six typed resource namespaces are final:
 
-| Surface                          | Status         |
-|----------------------------------|----------------|
-| `CerberusClient` / `AsyncCerberusClient` | Shipped in rc1 |
-| `CerberusAPIError` hierarchy      | Shipped in rc1 |
-| `RetryConfig`, `ApiKeyAuth`       | Shipped in rc1 |
-| `client.entities`, `client.persons`, `client.material_events` | Arriving in v0.1.0 GA |
-| `client.sanctions`, `client.registries`, `client.regulations` | Arriving in v0.1.0 GA |
-| Webhook signature helper (SDK-side) | v0.2.0 |
+| Surface                                                       | Status           |
+|---------------------------------------------------------------|------------------|
+| `CerberusClient` / `AsyncCerberusClient`                      | Shipped in rc1   |
+| `CerberusAPIError` hierarchy                                  | Shipped in rc1   |
+| `RetryConfig`, `ApiKeyAuth`                                   | Shipped in rc1   |
+| `client.entities`, `client.persons`, `client.material_events` | Shipped in rc1   |
+| `client.sanctions`, `client.registries`, `client.regulations` | Shipped in rc1   |
+| Webhook signature helper (SDK-side)                           | Planned v0.2.0   |
 
-In rc1 you can always fall back to the low-level `client._request(method, path, ...)`
-transport, which returns the parsed JSON body as a `dict`.
+For endpoints not yet wrapped by a typed resource you can still call the low-level
+`client._request(method, path, *, params=..., json=...)` transport, which returns
+the parsed JSON body as a `dict`.
 
 ## Contributing
 
