@@ -82,6 +82,47 @@ DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 _NETWORK_ERROR_STATUS: Final[int] = 503
 
 
+def _fix_insecure_redirect_location(response: httpx.Response) -> None:
+    """Rewrite ``Location: http://…`` to ``https://…`` on redirect responses.
+
+    The Cerberus Compliance API is fronted by Cloudflare + an ingress that
+    terminates TLS before forwarding to FastAPI on plain HTTP. When FastAPI
+    issues a ``307 Temporary Redirect`` for a missing trailing slash
+    (``/v1/entities`` → ``/v1/entities/``), it emits the redirect with the
+    scheme it sees locally (``http://``), even though the original request
+    arrived over ``https://``.
+
+    httpx treats ``https → http`` as a cross-origin security downgrade and
+    strips the ``Authorization`` header before following the redirect,
+    which then fails with ``401 Missing authentication``. We rewrite the
+    ``Location`` header in-flight so httpx sees a same-origin
+    ``https → https`` redirect and preserves the auth headers.
+
+    No-op for any response that is not a redirect, or whose original
+    request was not over HTTPS, or whose ``Location`` is relative or
+    already ``https://``. The rewrite is a string prefix swap — we do not
+    touch the path, query, or fragment.
+    """
+    if response.status_code not in {301, 302, 303, 307, 308}:
+        return
+    location = response.headers.get("location")
+    if not location or not location.startswith("http://"):
+        return
+    if response.request.url.scheme != "https":
+        return
+    response.headers["location"] = "https://" + location[len("http://") :]
+
+
+async def _fix_insecure_redirect_location_async(response: httpx.Response) -> None:
+    """Async mirror of :func:`_fix_insecure_redirect_location`.
+
+    httpx dispatches event hooks via ``await`` when the client is async, so
+    the hook callable itself must be ``async``. The body just delegates to
+    the sync helper — there's no I/O to await.
+    """
+    _fix_insecure_redirect_location(response)
+
+
 def _retry_after_to_float(header_value: str | None) -> float | None:
     """Best-effort numeric parse of a ``Retry-After`` header.
 
@@ -142,10 +183,22 @@ class CerberusClient:
         self.timeout = timeout
         self.retry = retry or RetryConfig()
         self._logger = logger or logging.getLogger("cerberus_compliance")
+        # ``follow_redirects=True``: the real API serves collection endpoints
+        # with a trailing slash (e.g. ``GET /v1/entities/``). FastAPI responds
+        # with a ``307 Temporary Redirect`` when the trailing slash is missing;
+        # 307 preserves the HTTP method and body, so following it is safe for
+        # GET/POST alike. This spares every resource module from hardcoding
+        # per-endpoint slash conventions.
+        #
+        # The ``response`` event hook rewrites ``Location: http://…`` to
+        # ``https://…`` on redirects — see
+        # :func:`_fix_insecure_redirect_location` for the full rationale.
         self._http = http_client or httpx.Client(
             base_url=self.base_url,
             timeout=timeout,
             auth=ApiKeyAuth(self.api_key),
+            follow_redirects=True,
+            event_hooks={"response": [_fix_insecure_redirect_location]},
         )
         self.entities = EntitiesResource(self)
         self.kyb = KYBResource(self)
@@ -303,10 +356,15 @@ class AsyncCerberusClient:
         self.timeout = timeout
         self.retry = retry or RetryConfig()
         self._logger = logger or logging.getLogger("cerberus_compliance")
+        # See :class:`CerberusClient` for why ``follow_redirects=True`` and the
+        # response hook. The async hook is a thin ``async`` wrapper because
+        # httpx awaits event hooks on async clients.
         self._http = http_client or httpx.AsyncClient(
             base_url=self.base_url,
             timeout=timeout,
             auth=ApiKeyAuth(self.api_key),
+            follow_redirects=True,
+            event_hooks={"response": [_fix_insecure_redirect_location_async]},
         )
         self.entities = AsyncEntitiesResource(self)
         self.kyb = AsyncKYBResource(self)

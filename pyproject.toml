@@ -108,6 +108,7 @@ filterwarnings = [
     "ignore:client\\.registries is deprecated:DeprecationWarning",
     "ignore:client\\.material_events is deprecated:DeprecationWarning",
     "ignore:client\\.registries\\.lookup_rut is deprecated:DeprecationWarning",
+    "ignore:client\\.persons\\.list and client\\.persons\\.get are deprecated:DeprecationWarning",
 ]
 
 [tool.coverage.run]

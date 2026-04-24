@@ -181,24 +181,32 @@ class TestStagingNormativa:
 # Persons
 # ---------------------------------------------------------------------------
 
+# Anchor RUT seeded in the staging KYB corpus (P5 seed script): Carlos Heller,
+# a director of Falabella, confirmed to have a regulatory profile in the
+# staging audit. This is the single persona used for the integration round-trip
+# so the test stays decoupled from the (deprecated) /persons collection
+# endpoint which does not exist in the prod API.
+CARLOS_HELLER_RUT = "11.111.111-1"
+
 
 class TestStagingPersons:
-    def test_list(self, staging_client: CerberusClient) -> None:
-        persons = staging_client.persons.list(limit=1)
-        assert isinstance(persons, list)
-
     def test_regulatory_profile_roundtrip(self, staging_client: CerberusClient) -> None:
-        persons = staging_client.persons.list(limit=1)
-        if not persons:
-            pytest.skip("no persons in staging corpus")
-        person_id = persons[0].get("id")
-        if person_id is None:
-            pytest.skip("person payload missing id field")
+        """G-persons check: regulatory_profile() must succeed for a known RUT.
+
+        Replaces the pre-v0.2.0 ``persons.list()`` + ``regulatory_profile()``
+        round-trip: ``/v1/persons`` is not a real endpoint, so we seed the
+        RUT from the KYB corpus instead.
+        """
         try:
-            profile = staging_client.persons.regulatory_profile(str(person_id))
+            profile = staging_client.persons.regulatory_profile(CARLOS_HELLER_RUT)
         except NotFoundError:
-            pytest.xfail("person has no regulatory profile")
+            pytest.xfail(f"no regulatory profile for {CARLOS_HELLER_RUT} in current corpus")
         assert isinstance(profile, dict)
+        cargos = profile.get("cargos_vigentes")
+        assert isinstance(cargos, list), "cargos_vigentes must be a list"
+        nombre = profile.get("nombre_completo")
+        assert isinstance(nombre, str), "nombre_completo must be a string"
+        assert nombre, "nombre_completo must be non-empty"
 
 
 # ---------------------------------------------------------------------------

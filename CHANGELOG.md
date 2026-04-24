@@ -68,10 +68,28 @@ production API at `https://compliance.cerberus.cl/v1`.
   `entities.get(id)` and `kyb.get(rut)`. The standalone resource is a
   shim with the same deprecation semantics as `registries`: constructor
   warns, `list/get/iter_all` raise `NotImplementedError`. Removed in v0.3.0.
+- **`PersonsResource.list()` and `PersonsResource.get()`.** The prod API
+  never exposed `/v1/persons` (collection) or `/v1/persons/{id}` (detail);
+  only `/v1/persons/{rut}/regulatory-profile` is real. Both methods are
+  now partial-deprecation shims on `PersonsResource`: the constructor
+  emits a single `DeprecationWarning`, and `list` / `get` / `iter_all`
+  raise `NotImplementedError` with a migration message. Migrate to
+  `client.persons.regulatory_profile(rut)` when you already know the
+  RUT, or `client.entities.directors(id)` to enumerate personas tied to
+  a legal entity. Removed in v0.3.0.
 
 ### Fixed
 
 - `entities.sanctions(id_)` now hits a real endpoint (G2, see Changed).
+- **`307 Temporary Redirect` on collection endpoints.** Both
+  `CerberusClient` and `AsyncCerberusClient` now construct their
+  underlying `httpx` client with `follow_redirects=True`. The prod API
+  serves collection endpoints with a trailing slash
+  (`GET /v1/entities/`, `GET /v1/sanctions/`), and FastAPI responds
+  with a `307` when a caller omits it. `307` preserves the HTTP method
+  and body, so following the redirect is safe for GET and POST alike.
+  Before the fix, the default httpx client raised a `CerberusAPIError`
+  on every `.list()` call against the real API.
 
 ### Security
 

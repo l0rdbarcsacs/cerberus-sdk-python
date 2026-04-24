@@ -139,10 +139,19 @@ compatibility shims and their test surface is the correctness signal.
    They currently 404 against prod; documenting this here so D is aware.
 
 2. **`persons.list` / `persons.get` not in prod spec.** Same situation as
-   above. Only `/persons/{rut}/regulatory-profile` is exposed. I did not
-   modify these methods. If they 404 in staging smoke, D should not treat
-   it as a regression — the methods pre-date v0.2.0 and were out of scope
-   for this pass.
+   above. Only `/persons/{rut}/regulatory-profile` is exposed.
+   **DONE (post-landing fixup on `feat/sdk-p51-overhaul`):** both methods
+   are now partial-deprecation shims on `PersonsResource` — the constructor
+   emits a single `DeprecationWarning`, and `list` / `get` / `iter_all`
+   raise `NotImplementedError` with a migration message pointing at
+   `client.persons.regulatory_profile(rut)` /
+   `client.entities.directors(id)`. `tests/resources/test_persons.py` was
+   rewritten to assert the deprecation semantics; the integration suite
+   now round-trips `persons.regulatory_profile(CARLOS_HELLER_RUT)` with
+   a known KYB-corpus RUT instead of gating the test on the fictional
+   `persons.list()` call. Drift check still exits 0 — `persons.list` /
+   `persons.get` were never in `RESOURCE_COVERAGE`, so there is nothing
+   rotten to remove.
 
 3. **`filterwarnings` pattern.** `pytest.ini_options.filterwarnings` gained
    three `ignore:client\.…` patterns so the default test run doesn't choke

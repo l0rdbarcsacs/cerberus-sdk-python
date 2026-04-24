@@ -77,7 +77,11 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/sanctions"): ("sanctions", "list"),
     ("GET", "/sanctions/{sancion_id}"): ("sanctions", "get"),
     ("GET", "/sanctions/by-entity/{entity_id}"): ("entities", "sanctions"),  # G2
-    # /persons
+    # /persons — only the regulatory-profile endpoint is real in prod.
+    # ``PersonsResource.list`` and ``PersonsResource.get`` are SDK methods
+    # deprecated in v0.2.0 (they raise ``NotImplementedError`` at runtime and
+    # will be removed in v0.3.0); they are intentionally absent from this
+    # coverage table so the drift report stays 0-rotten.
     ("GET", "/persons/{rut}/regulatory-profile"): ("persons", "regulatory_profile"),
     # /regulations (+ G16 search)
     ("GET", "/regulations"): ("regulations", "list"),

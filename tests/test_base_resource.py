@@ -345,3 +345,73 @@ def test_subclass_can_override_prefix() -> None:
 def test_unused_pytest_import_silenced() -> None:
     # Touch pytest to keep ruff happy if no other test in this module references it.
     assert pytest.__version__
+
+
+# ---------------------------------------------------------------------------
+# Live-API envelope support: {"items": [...], "next_cursor": ...}
+# ---------------------------------------------------------------------------
+
+
+class TestLiveApiEnvelope:
+    """The prod API returns ``{"items": ..., "next_cursor": ...}`` rather than
+    the SDK-documented ``{"data": ..., "next": ...}``. Both shapes must flow
+    through ``_list`` / ``_iter_all`` transparently.
+    """
+
+    def test_list_accepts_items_envelope(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/things").mock(
+            return_value=httpx.Response(
+                200,
+                json={"items": [{"id": "t1"}, {"id": "t2"}], "next_cursor": None},
+            )
+        )
+        assert _Things(sync_client).list() == [{"id": "t1"}, {"id": "t2"}]
+
+    def test_list_prefers_data_over_items_when_both_present(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """When both keys are present, ``data`` wins — it's the SDK's canonical
+        contract and every unit fixture uses it. ``items`` is a real-API
+        fallback only."""
+        respx_mock.get("/things").mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": [{"id": "canonical"}], "items": [{"id": "fallback"}]},
+            )
+        )
+        assert _Things(sync_client).list() == [{"id": "canonical"}]
+
+    def test_iter_all_paginates_with_next_cursor_envelope(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/things", params={"cursor": "tok2"}).mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "t2"}], "next_cursor": None})
+        )
+        respx_mock.get("/things", params={}).mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "t1"}], "next_cursor": "tok2"})
+        )
+        assert list(_Things(sync_client).iter_all()) == [{"id": "t1"}, {"id": "t2"}]
+
+    async def test_async_list_accepts_items_envelope(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/things").mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "t1"}], "next_cursor": None})
+        )
+        assert await _AsyncThings(async_client).list() == [{"id": "t1"}]
+
+    async def test_async_iter_all_paginates_with_next_cursor_envelope(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/things", params={"cursor": "n2"}).mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "b"}], "next_cursor": None})
+        )
+        respx_mock.get("/things", params={}).mock(
+            return_value=httpx.Response(200, json={"items": [{"id": "a"}], "next_cursor": "n2"})
+        )
+        collected: list[dict[str, Any]] = []
+        async for item in _AsyncThings(async_client).iter_all():
+            collected.append(item)
+        assert collected == [{"id": "a"}, {"id": "b"}]
