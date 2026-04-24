@@ -75,7 +75,7 @@ Every resource has a sync (`client.<resource>`) and async
 | Resource                     | Endpoint(s)                                                          | Key methods                                                                   |
 |------------------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | `client.kyb`                 | `GET /kyb/{rut}`                                                     | `get(rut, *, as_of=None, include=[...])`                                      |
-| `client.entities`            | `/entities`, `/entities/{id}`, `/entities/by-rut/{rut}`              | `list`, `get`, `by_rut`, `ownership`, `directors`, `sanctions`, `regulations`, `iter_all` |
+| `client.entities`            | `/entities`, `/entities/{id}`, `/entities/by-rut/{rut}`              | `list`, `get`, `by_rut`, `ownership`, `directors`, `sanctions`, `regulations`, `material_events`, `iter_all` |
 | `client.sanctions`           | `/sanctions`, `/sanctions/{id}`                                      | `list(*, target_id, source, active, limit)`, `get`, `iter_all`                |
 | `client.regulations`         | `/regulations`, `/regulations/search`                                | `list(*, entity_id, framework, limit)`, `get`, `search(q, **params)`, `iter_all` |
 | `client.rpsf`                | `/rpsf`, `/rpsf/by-entity/{id}`, `/rpsf/by-servicio/{s}`             | `list(**filters)`, `get`, `by_entity`, `by_servicio`, `iter_all`              |
