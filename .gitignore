@@ -205,3 +205,26 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Cerberus SDK additions
+.venv/
+.envrc
+.env
+.envrc.local
+openapi.json
+openapi-cached.json
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+.ipynb_checkpoints/
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
