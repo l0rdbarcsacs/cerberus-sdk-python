@@ -42,6 +42,18 @@ from cerberus_compliance.resources.persons import (
     AsyncPersonsResource,
     PersonsResource,
 )
+from cerberus_compliance.resources.registries import (
+    AsyncRegistriesResource,
+    RegistriesResource,
+)
+from cerberus_compliance.resources.regulations import (
+    AsyncRegulationsResource,
+    RegulationsResource,
+)
+from cerberus_compliance.resources.sanctions import (
+    AsyncSanctionsResource,
+    SanctionsResource,
+)
 from cerberus_compliance.retry import RetryConfig, backoff_seconds, should_retry
 
 __all__ = [
@@ -93,6 +105,9 @@ class CerberusClient:
     base_url: str
     timeout: float
     retry: RetryConfig
+    sanctions: SanctionsResource
+    registries: RegistriesResource
+    regulations: RegulationsResource
 
     def __init__(
         self,
@@ -117,7 +132,10 @@ class CerberusClient:
         self.entities: EntitiesResource = EntitiesResource(self)
         self.persons: PersonsResource = PersonsResource(self)
         self.material_events: MaterialEventsResource = MaterialEventsResource(self)
-        # Sub-resources are wired below by Instances B/C — keep this exact marker:
+        self.sanctions: SanctionsResource = SanctionsResource(self)
+        self.registries: RegistriesResource = RegistriesResource(self)
+        self.regulations: RegulationsResource = RegulationsResource(self)
+        # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
     def _request(
@@ -239,6 +257,9 @@ class AsyncCerberusClient:
     base_url: str
     timeout: float
     retry: RetryConfig
+    sanctions: AsyncSanctionsResource
+    registries: AsyncRegistriesResource
+    regulations: AsyncRegulationsResource
 
     def __init__(
         self,
@@ -263,7 +284,10 @@ class AsyncCerberusClient:
         self.entities: AsyncEntitiesResource = AsyncEntitiesResource(self)
         self.persons: AsyncPersonsResource = AsyncPersonsResource(self)
         self.material_events: AsyncMaterialEventsResource = AsyncMaterialEventsResource(self)
-        # Sub-resources are wired below by Instances B/C — keep this exact marker:
+        self.sanctions: AsyncSanctionsResource = AsyncSanctionsResource(self)
+        self.registries: AsyncRegistriesResource = AsyncRegistriesResource(self)
+        self.regulations: AsyncRegulationsResource = AsyncRegulationsResource(self)
+        # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
     async def _request(
