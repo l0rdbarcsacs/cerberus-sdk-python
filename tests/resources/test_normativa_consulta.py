@@ -189,9 +189,7 @@ class TestNormativaConsultaAsync:
         resource = AsyncNormativaConsultaResource(async_client)
         assert await resource.list(estado="cerrada") == []
 
-    async def test_list_rejects_out_of_range_limit(
-        self, async_client: AsyncCerberusClient
-    ) -> None:
+    async def test_list_rejects_out_of_range_limit(self, async_client: AsyncCerberusClient) -> None:
         """Async mirror of the limit gate — must reject before awaiting the wire."""
         resource = AsyncNormativaConsultaResource(async_client)
         with pytest.raises(ValueError, match=r"limit must be an int in \[1, 200\]"):
