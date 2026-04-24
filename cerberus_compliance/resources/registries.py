@@ -25,18 +25,24 @@ RegistryType = Literal["CMF", "SII", "DICOM", "Conservador"]
 def _normalize_rut(rut: str) -> str:
     """Return the canonical ``<body>-<dv>`` form of ``rut``.
 
-    Strips whitespace, dots, and hyphens; uppercases the last character
-    (the check digit) when it is ``k``. Raises :class:`ValueError` when
-    the remaining string is empty or contains non-alphanumeric chars.
+    The input is stripped of whitespace, dots, and hyphens; the check
+    digit is uppercased when it is ``k``. Raises :class:`ValueError`
+    when the string is empty, shorter than two characters, contains
+    non-alphanumeric chars, has a non-numeric body, or has a verifier
+    that is not a digit or ``K``. This validation is syntactic only:
+    the check-digit arithmetic is not verified.
     """
     stripped = "".join(ch for ch in rut if not ch.isspace())
     cleaned = stripped.replace(".", "").replace("-", "")
 
-    if not cleaned or not cleaned.isalnum():
+    if len(cleaned) < 2 or not cleaned.isalnum():
         raise ValueError(f"invalid RUT: {rut!r}")
 
-    canonical = cleaned.upper() if cleaned[-1] in {"k", "K"} else cleaned
-    return f"{canonical[:-1]}-{canonical[-1]}"
+    body, dv = cleaned[:-1], cleaned[-1].upper()
+    if not body.isdigit() or not (dv.isdigit() or dv == "K"):
+        raise ValueError(f"invalid RUT: {rut!r}")
+
+    return f"{body}-{dv}"
 
 
 def _build_list_params(

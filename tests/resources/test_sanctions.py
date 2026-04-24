@@ -226,6 +226,17 @@ class TestSanctionsResource:
         assert page1.called
         assert page2.called
 
+    def test_iter_all_drops_none_filters(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        # `None`-valued kwargs must not bleed into the wire URL.
+        route = respx_mock.get("/sanctions").mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "z"}], "next": None})
+        )
+        resource = SanctionsResource(sync_client)
+        assert list(resource.iter_all(source=None, target_id=None, active=None)) == [{"id": "z"}]
+        assert route.calls.last.request.url.query == b""
+
 
 # ---------------------------------------------------------------------------
 # Async behaviour
@@ -378,3 +389,16 @@ class TestAsyncSanctionsResource:
             out.append(item)
         assert out == [{"id": "x"}]
         assert route.called
+
+    async def test_iter_all_drops_none_filters(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions").mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "z"}], "next": None})
+        )
+        resource = AsyncSanctionsResource(async_client)
+        out: list[dict[str, Any]] = []
+        async for item in resource.iter_all(source=None, target_id=None, active=None):
+            out.append(item)
+        assert out == [{"id": "z"}]
+        assert route.calls.last.request.url.query == b""

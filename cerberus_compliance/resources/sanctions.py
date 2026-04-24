@@ -44,8 +44,13 @@ def _build_params(
 
 
 def _normalise_filters(filters: dict[str, Any]) -> dict[str, Any]:
-    """Apply the ``ONU`` -> ``UN`` alias to raw ``**filters`` kwargs."""
-    normalised = dict(filters)
+    """Drop ``None``-valued kwargs and apply the ``ONU`` -> ``UN`` alias.
+
+    The ``None`` filter is always stripped so callers can pass optional
+    kwargs through ``**filters`` without polluting the wire URL with
+    ``?source=`` and similar empty values.
+    """
+    normalised = {k: v for k, v in filters.items() if v is not None}
     if normalised.get("source") == "ONU":
         normalised["source"] = "UN"
     return normalised

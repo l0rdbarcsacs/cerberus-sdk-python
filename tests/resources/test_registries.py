@@ -223,6 +223,28 @@ class TestRegistriesResource:
         with pytest.raises(ValueError, match="invalid RUT"):
             resource.lookup_rut("...---")
 
+    @pytest.mark.parametrize("bad", ["5", "k", "K", "-5", "5-"])
+    def test_lookup_rut_single_char_body_rejected(
+        self, sync_client: CerberusClient, bad: str
+    ) -> None:
+        # After stripping, a single alphanumeric character leaves an
+        # empty body — reject before emitting a malformed ``-5`` path.
+        resource = RegistriesResource(sync_client)
+        with pytest.raises(ValueError, match="invalid RUT"):
+            resource.lookup_rut(bad)
+
+    def test_lookup_rut_alphabetic_body_rejected(self, sync_client: CerberusClient) -> None:
+        # Body must be purely numeric (Chilean RUT convention).
+        resource = RegistriesResource(sync_client)
+        with pytest.raises(ValueError, match="invalid RUT"):
+            resource.lookup_rut("abc1234-5")
+
+    def test_lookup_rut_non_dk_verifier_rejected(self, sync_client: CerberusClient) -> None:
+        # Verifier must be a digit or ``K``; anything else is syntactically invalid.
+        resource = RegistriesResource(sync_client)
+        with pytest.raises(ValueError, match="invalid RUT"):
+            resource.lookup_rut("12345678-Z")
+
     def test_iter_all_paginates_forwards_filters(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
