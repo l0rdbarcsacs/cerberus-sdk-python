@@ -71,9 +71,7 @@ def _periodo_from_range(from_: str, to: str) -> str:
     """
     for label, value in (("from_", from_), ("to", to)):
         if not isinstance(value, str) or len(value) != 10 or value[4] != "-" or value[7] != "-":
-            raise ValueError(
-                f"indicadores.history: {label} must be 'YYYY-MM-DD', got {value!r}"
-            )
+            raise ValueError(f"indicadores.history: {label} must be 'YYYY-MM-DD', got {value!r}")
     y1, m1 = from_[:4], from_[5:7]
     y2, m2 = to[:4], to[5:7]
     return f"{y1}/{m1}/{y2}/{m2}"

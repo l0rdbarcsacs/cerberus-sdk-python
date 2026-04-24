@@ -177,9 +177,7 @@ class TestIndicadoresHistory:
         respx_mock.get(
             "/indicadores/UF",
             params={"periodo": "2026/01/2026/04"},
-        ).mock(
-            return_value=httpx.Response(200, json={"name": "UF", "values": None})
-        )
+        ).mock(return_value=httpx.Response(200, json={"name": "UF", "values": None}))
         resource = IndicadoresResource(sync_client)
         assert resource.history("UF", from_="2026-01-01", to="2026-04-30") == []
 
@@ -243,9 +241,7 @@ class TestIndicadoresAsync:
     async def test_history(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get(
-            "/indicadores/UF", params={"periodo": "2026/01/2026/04"}
-        ).mock(
+        respx_mock.get("/indicadores/UF", params={"periodo": "2026/01/2026/04"}).mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -259,9 +255,7 @@ class TestIndicadoresAsync:
         series = await resource.history("UF", from_="2026-01-01", to="2026-04-30")
         assert series == [{"date": "2026-01-01", "value": "38989.15"}]
 
-    async def test_history_rejects_bad_dates(
-        self, async_client: AsyncCerberusClient
-    ) -> None:
+    async def test_history_rejects_bad_dates(self, async_client: AsyncCerberusClient) -> None:
         resource = AsyncIndicadoresResource(async_client)
         with pytest.raises(ValueError, match="YYYY-MM-DD"):
             await resource.history("UF", from_="nope", to="2026-04-30")
@@ -270,8 +264,8 @@ class TestIndicadoresAsync:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         """Async mirror of the defensive null-values branch."""
-        respx_mock.get(
-            "/indicadores/UF", params={"periodo": "2026/01/2026/04"}
-        ).mock(return_value=httpx.Response(200, json={"name": "UF", "values": None}))
+        respx_mock.get("/indicadores/UF", params={"periodo": "2026/01/2026/04"}).mock(
+            return_value=httpx.Response(200, json={"name": "UF", "values": None})
+        )
         resource = AsyncIndicadoresResource(async_client)
         assert await resource.history("UF", from_="2026-01-01", to="2026-04-30") == []

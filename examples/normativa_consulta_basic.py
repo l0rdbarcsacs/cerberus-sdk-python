@@ -93,9 +93,7 @@ def _run(client: CerberusClient) -> None:
         print(_render_row(row))
 
     _print_header("3. Rollup: open consultations by mercado")
-    counter: Counter[str] = Counter(
-        _fmt(row.get("mercado_label")) for row in open_rows
-    )
+    counter: Counter[str] = Counter(_fmt(row.get("mercado_label")) for row in open_rows)
     for mercado, count in counter.most_common():
         print(f"  {mercado:30s} {count:4d}")
 

@@ -228,9 +228,7 @@ class TestStagingIndicadores:
         the SDK contract, not the server corpus.
         """
         try:
-            series = staging_client.indicadores.history(
-                "UF", from_="2026-04-01", to="2026-04-30"
-            )
+            series = staging_client.indicadores.history("UF", from_="2026-04-01", to="2026-04-30")
         except (NotFoundError, CerberusAPIError):
             pytest.xfail("staging indicadores history not populated")
         assert isinstance(series, list)

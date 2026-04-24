@@ -118,11 +118,7 @@ class TestNormativaConsultaList:
         respx_mock.get(
             "/normativa-consulta",
             params={"estado": "abierta", "limit": "100"},
-        ).mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "x"}], "next": None}
-            )
-        )
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "x"}], "next": None}))
         resource = NormativaConsultaResource(sync_client)
         assert resource.list() == [{"id": "x"}]
 
