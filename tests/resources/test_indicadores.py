@@ -188,6 +188,10 @@ class TestIndicadoresHistory:
             ("2026-04-30", "2026/04"),
             ("", "2026-04-30"),
             ("not-a-date", "2026-04-30"),
+            # Calendar-invalid: caught by date.fromisoformat (was silently
+            # accepted by the previous char-by-char check).
+            ("2026-13-01", "2026-04-30"),
+            ("2026-02-30", "2026-04-30"),
         ],
     )
     def test_history_rejects_non_iso_dates(
@@ -196,6 +200,12 @@ class TestIndicadoresHistory:
         resource = IndicadoresResource(sync_client)
         with pytest.raises(ValueError, match="YYYY-MM-DD"):
             resource.history("UF", from_=bad_from, to=bad_to)
+
+    def test_history_rejects_non_string_dates(self, sync_client: CerberusClient) -> None:
+        """Non-string inputs hit the ``isinstance`` guard before parsing."""
+        resource = IndicadoresResource(sync_client)
+        with pytest.raises(ValueError, match="YYYY-MM-DD"):
+            resource.history("UF", from_=20260101, to="2026-04-30")  # type: ignore[arg-type]
 
     def test_history_422_raises_validation_error(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter

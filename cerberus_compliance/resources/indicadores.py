@@ -35,6 +35,7 @@ Example
 
 from __future__ import annotations
 
+from datetime import date as _date
 from typing import Any
 from urllib.parse import quote
 
@@ -63,18 +64,26 @@ def _periodo_from_range(from_: str, to: str) -> str:
     transform is intentionally strict: we do not accept ``YYYY/MM/DD`` or
     ``YYYY-MM`` inputs, to keep the public surface unambiguous.
 
-    Raises :class:`ValueError` when either input is not a
-    ``YYYY-MM-DD`` string with matching component lengths. No calendar
-    validation is performed here — the server owns that, and bubbling a
-    ``422 Validation`` keeps the error surface consistent with the rest
-    of the SDK.
+    Raises :class:`ValueError` when either input is not a parseable
+    ``YYYY-MM-DD`` ISO date. We delegate the lexical + calendar check
+    to :meth:`datetime.date.fromisoformat` (cheap, stdlib, fewer corner
+    cases than char-by-char inspection — e.g. it correctly rejects
+    ``"2026-13-01"`` and ``"2026-02-30"``). The server still owns the
+    range check (``from_ <= to``); we forward a ``422 Validation``
+    instead of duplicating it.
     """
+    parsed: dict[str, _date] = {}
     for label, value in (("from_", from_), ("to", to)):
-        if not isinstance(value, str) or len(value) != 10 or value[4] != "-" or value[7] != "-":
+        if not isinstance(value, str):
             raise ValueError(f"indicadores.history: {label} must be 'YYYY-MM-DD', got {value!r}")
-    y1, m1 = from_[:4], from_[5:7]
-    y2, m2 = to[:4], to[5:7]
-    return f"{y1}/{m1}/{y2}/{m2}"
+        try:
+            parsed[label] = _date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"indicadores.history: {label} must be 'YYYY-MM-DD', got {value!r}"
+            ) from exc
+    d1, d2 = parsed["from_"], parsed["to"]
+    return f"{d1.year:04d}/{d1.month:02d}/{d2.year:04d}/{d2.month:02d}"
 
 
 class IndicadoresResource(BaseResource):
