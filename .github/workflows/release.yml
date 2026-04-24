@@ -57,8 +57,58 @@ jobs:
           TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
         run: twine upload --non-interactive dist/*
 
+  verify-testpypi:
+    name: Verify TestPyPI install + smoke
+    needs: publish-testpypi
+    runs-on: ubuntu-latest
+    # Canary strategy: RC-ONLY. The canary exercises TestPyPI install + live staging
+    # smoke on every pre-release tag (-rc / -beta / -alpha). Stable tags skip this
+    # job entirely (their publish-pypi condition excludes pre-release suffixes) and
+    # inherit canary confidence from the prior rc tag via manual review in the
+    # release runbook. If you need a per-stable-tag canary, drop this `if:` and
+    # add `verify-testpypi` to publish-pypi's `needs:` — see PR description.
+    if: contains(needs.build.outputs.tag, '-rc') || contains(needs.build.outputs.tag, '-beta') || contains(needs.build.outputs.tag, '-alpha')
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install from TestPyPI (retry until index is ready)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for i in 1 2 3 4 5; do
+            if pip install --index-url https://test.pypi.org/simple/ \
+                --extra-index-url https://pypi.org/simple/ \
+                "cerberus-compliance==${VERSION}"; then
+              echo "Installed cerberus-compliance==${VERSION} from TestPyPI"
+              break
+            fi
+            echo "Retry $i: TestPyPI index not ready yet, sleeping 30s..."
+            sleep 30
+          done
+          python -c "import cerberus_compliance; print(cerberus_compliance.__version__)"
+      - name: Smoke — import + kyb.get against staging
+        env:
+          CERBERUS_STAGING_KEY: ${{ secrets.CERBERUS_STAGING_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          from cerberus_compliance import CerberusClient
+          c = CerberusClient(
+              api_key=os.environ["CERBERUS_STAGING_KEY"],
+              base_url="https://staging-compliance.cerberus.cl/v1",
+          )
+          resp = c.kyb.get("96.505.760-9")
+          assert "risk_score" in resp, f"missing risk_score: {resp.keys()}"
+          assert resp.get("cache_status") in ("hit", "miss", "bypass"), f"bad cache_status: {resp.get('cache_status')!r}"
+          assert "legal_name" in resp, f"missing legal_name: {resp.keys()}"
+          print(f"SMOKE OK: {resp['legal_name']} risk={resp['risk_score']} cache={resp['cache_status']}")
+          PY
+
   publish-pypi:
     name: Publish to PyPI
+    # Stable tags require the build to be clean. The TestPyPI canary only fires on
+    # pre-release tags (-rc / -beta / -alpha); stable tags inherit canary confidence
+    # from the prior rc tag via manual release-runbook review.
     needs: build
     runs-on: ubuntu-latest
     environment: pypi
