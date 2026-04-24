@@ -18,6 +18,7 @@ from __future__ import annotations
 import builtins
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
+from urllib.parse import quote
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 
@@ -67,22 +68,22 @@ class EntitiesResource(BaseResource):
 
     def material_events(self, id_: str) -> builtins.list[dict[str, Any]]:
         """List material events (``hechos esenciales``) for an entity."""
-        body = self._client._request("GET", f"{self._path_prefix}/{id_}/material-events")
+        body = self._client._request("GET", f"{self._path_prefix}/{quote(id_, safe='')}/material-events")
         return _extract_data_list(body)
 
     def sanctions(self, id_: str) -> builtins.list[dict[str, Any]]:
         """List sanctions observed against an entity."""
-        body = self._client._request("GET", f"{self._path_prefix}/{id_}/sanctions")
+        body = self._client._request("GET", f"{self._path_prefix}/{quote(id_, safe='')}/sanctions")
         return _extract_data_list(body)
 
     def directors(self, id_: str) -> builtins.list[dict[str, Any]]:
         """List the current board of directors for an entity."""
-        body = self._client._request("GET", f"{self._path_prefix}/{id_}/directors")
+        body = self._client._request("GET", f"{self._path_prefix}/{quote(id_, safe='')}/directors")
         return _extract_data_list(body)
 
     def regulations(self, id_: str) -> builtins.list[dict[str, Any]]:
         """List regulatory obligations applicable to an entity."""
-        body = self._client._request("GET", f"{self._path_prefix}/{id_}/regulations")
+        body = self._client._request("GET", f"{self._path_prefix}/{quote(id_, safe='')}/regulations")
         return _extract_data_list(body)
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
@@ -120,22 +121,22 @@ class AsyncEntitiesResource(AsyncBaseResource):
 
     async def material_events(self, id_: str) -> builtins.list[dict[str, Any]]:
         """Async variant of :meth:`EntitiesResource.material_events`."""
-        body = await self._client._request("GET", f"{self._path_prefix}/{id_}/material-events")
+        body = await self._client._request("GET", f"{self._path_prefix}/{quote(id_, safe='')}/material-events")
         return _extract_data_list(body)
 
     async def sanctions(self, id_: str) -> builtins.list[dict[str, Any]]:
         """Async variant of :meth:`EntitiesResource.sanctions`."""
-        body = await self._client._request("GET", f"{self._path_prefix}/{id_}/sanctions")
+        body = await self._client._request("GET", f"{self._path_prefix}/{quote(id_, safe='')}/sanctions")
         return _extract_data_list(body)
 
     async def directors(self, id_: str) -> builtins.list[dict[str, Any]]:
         """Async variant of :meth:`EntitiesResource.directors`."""
-        body = await self._client._request("GET", f"{self._path_prefix}/{id_}/directors")
+        body = await self._client._request("GET", f"{self._path_prefix}/{quote(id_, safe='')}/directors")
         return _extract_data_list(body)
 
     async def regulations(self, id_: str) -> builtins.list[dict[str, Any]]:
         """Async variant of :meth:`EntitiesResource.regulations`."""
-        body = await self._client._request("GET", f"{self._path_prefix}/{id_}/regulations")
+        body = await self._client._request("GET", f"{self._path_prefix}/{quote(id_, safe='')}/regulations")
         return _extract_data_list(body)
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:

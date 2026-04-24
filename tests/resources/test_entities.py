@@ -219,6 +219,22 @@ class TestSyncEntitiesResource:
         finally:
             client.close()
 
+    # ------------------------------------------------------------------
+    # Path-traversal hardening (OWASP A01)
+    # ------------------------------------------------------------------
+
+    def test_path_traversal_id_is_percent_encoded(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """User-supplied id_ containing '../' must be percent-encoded, not traversed."""
+        route = respx_mock.get("/entities/..%2Fadmin/sanctions").mock(
+            return_value=httpx.Response(200, json={"data": []})
+        )
+        resource = EntitiesResource(sync_client)
+        result = resource.sanctions("../admin")
+        assert result == []
+        assert route.called
+
 
 # ---------------------------------------------------------------------------
 # Async tests
@@ -336,3 +352,19 @@ class TestAsyncEntitiesResource:
         async for item in resource.iter_all(rut="76123456-7"):
             collected.append(item)
         assert collected == [{"id": "a"}, {"id": "b"}]
+
+    # ------------------------------------------------------------------
+    # Path-traversal hardening (OWASP A01)
+    # ------------------------------------------------------------------
+
+    async def test_path_traversal_id_is_percent_encoded(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """User-supplied id_ containing '../' must be percent-encoded, not traversed."""
+        route = respx_mock.get("/entities/..%2Fadmin/material-events").mock(
+            return_value=httpx.Response(200, json={"data": []})
+        )
+        resource = AsyncEntitiesResource(async_client)
+        result = await resource.material_events("../admin")
+        assert result == []
+        assert route.called

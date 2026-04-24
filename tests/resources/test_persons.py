@@ -175,6 +175,22 @@ class TestSyncPersonsResource:
         finally:
             client.close()
 
+    # ------------------------------------------------------------------
+    # Path-traversal hardening (OWASP A01)
+    # ------------------------------------------------------------------
+
+    def test_path_traversal_id_is_percent_encoded(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """User-supplied id_ containing '../' must be percent-encoded, not traversed."""
+        route = respx_mock.get("/persons/..%2Fadmin/regulatory-profile").mock(
+            return_value=httpx.Response(200, json={"pep": False})
+        )
+        resource = PersonsResource(sync_client)
+        result = resource.regulatory_profile("../admin")
+        assert result == {"pep": False}
+        assert route.called
+
 
 # ---------------------------------------------------------------------------
 # Async tests
@@ -251,3 +267,19 @@ class TestAsyncPersonsResource:
         )
         resource = AsyncPersonsResource(async_client)
         assert await resource.list(rut="7890123-4", limit=5) == [{"id": "pZ"}]
+
+    # ------------------------------------------------------------------
+    # Path-traversal hardening (OWASP A01)
+    # ------------------------------------------------------------------
+
+    async def test_path_traversal_id_is_percent_encoded(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """User-supplied id_ containing '../' must be percent-encoded, not traversed."""
+        route = respx_mock.get("/persons/..%2Fadmin/regulatory-profile").mock(
+            return_value=httpx.Response(200, json={"pep": False})
+        )
+        resource = AsyncPersonsResource(async_client)
+        result = await resource.regulatory_profile("../admin")
+        assert result == {"pep": False}
+        assert route.called
