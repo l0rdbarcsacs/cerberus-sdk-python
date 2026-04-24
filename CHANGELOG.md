@@ -5,6 +5,79 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0rc1] — 2026-04-24
+
+Release candidate for v0.3.0. Adds the two new P5.2 "deep-data" resources
+(`indicadores`, `normativa_consulta`) and **drops the pre-v0.2.0 deprecated
+shims** that were scheduled for removal in v0.3.0.
+
+### Added
+
+- **`client.indicadores` (G8).** Typed accessor for `/indicadores/{name}`
+  covering the six CMF Indicadores API v3 series: `UF`, `UTM`, `USD`, `EUR`,
+  `IPC`, `TMC`. Methods:
+  - `indicadores.get(name, date=None)` — single-date (or latest) value.
+  - `indicadores.history(name, from_, to)` — historical range transformed
+    internally from `YYYY-MM-DD` start/end into the CMF `periodo=Y/M/Y/M`
+    form; returns the `values` array unwrapped for ergonomics.
+  Async mirror: `AsyncIndicadoresResource`. Values are returned as **strings**
+  (CMF-published precision, no float rounding) so `Decimal` consumers stay
+  exact.
+- **`client.normativa_consulta` (G9).** Typed accessor for
+  `/normativa-consulta?estado=abierta|cerrada` — open and recently-closed
+  CMF rulemaking consultations scraped from `normativa_tramite.php` +
+  `normativa_tramite_cerrada.php` every 2h. Method:
+  - `normativa_consulta.list(estado="abierta", limit=100, offset=0)`
+  Async mirror: `AsyncNormativaConsultaResource`. Exposes the
+  `NormativaConsultaEstado = Literal["abierta", "cerrada"]` type at the
+  package top level for strict-mypy callers.
+- `examples/indicadores_basic.py` and `examples/normativa_consulta_basic.py`
+  — runnable walkthroughs for the two new resources.
+- `tests/resources/test_indicadores.py` and
+  `tests/resources/test_normativa_consulta.py` — respx-backed unit coverage
+  for happy paths, envelope compatibility, path-traversal hardening, and
+  error mapping. Integration cases added to
+  `tests/integration/test_live_staging.py`.
+
+### Changed
+
+- `scripts/check_sdk_drift.py`: `RESOURCE_COVERAGE` now lists
+  `/indicadores/{name}` and `/normativa-consulta` so the drift gate recognises
+  the two new resources.
+- `docs/api/endpoints.md` (backend repo) now documents both endpoints; this
+  SDK's `README.md` surface table mirrors the addition.
+
+### Removed — **breaking**
+
+- **`client.registries` and its sync/async classes, plus `RegistryType`.**
+  The resource was a deprecated shim flagged in v0.2.0; all five call paths
+  were already raising `NotImplementedError` or emitting a
+  `DeprecationWarning`. Callers have been migrating to `client.entities.by_rut`
+  for six months. Removed per the v0.2.0 roadmap (D.4 audit finding).
+- **`client.material_events` and its sync/async classes.** Same history as
+  `registries` — deprecated in v0.2.0, all methods were no-ops modulo the
+  warning. Material events are available on `client.kyb.get(rut)` under
+  `recent_material_events` and on `client.entities.material_events(id)`.
+
+  Migration recipe for anyone still on the shim::
+
+      # Before (v0.2.x)
+      events = client.material_events.list(entity_id=eid)  # raised
+
+      # After (v0.3.0)
+      events = client.kyb.get(rut)["recent_material_events"]
+      # or
+      events = client.entities.material_events(eid)
+
+### Chore
+
+- `pyproject.toml` version bumped to `0.3.0rc1`; the stable `0.3.0` tag
+  follows the TestPyPI canary verification.
+- `tests/test_public_api.py::test_dead_shims_are_gone` guards the removal —
+  imports and `__all__` must not re-introduce the shims.
+
+[v0.3.0rc1]: https://github.com/l0rdbarcsacs/cerberus-sdk-python/releases/tag/v0.3.0-rc1
+
 ## [Unreleased]
 
 ### Documentation
