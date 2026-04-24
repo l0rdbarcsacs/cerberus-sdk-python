@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cerberus-compliance"
-version = "0.1.0"
+version = "0.2.0"
 description = "Official Python SDK for the Cerberus Compliance API (Chile RegTech)"
 readme = "README.md"
 license = { text = "MIT" }
@@ -101,6 +101,13 @@ asyncio_mode = "auto"
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:respx.*",
+    # Ignore our own deprecation warnings in the default test suite; tests that
+    # specifically cover the deprecation path opt in via ``pytest.warns(...)``.
+    # The ``stacklevel=2`` passed by deprecated shims shifts the source module
+    # to ``cerberus_compliance.client`` — the site calling the constructor.
+    "ignore:client\\.registries is deprecated:DeprecationWarning",
+    "ignore:client\\.material_events is deprecated:DeprecationWarning",
+    "ignore:client\\.registries\\.lookup_rut is deprecated:DeprecationWarning",
 ]
 
 [tool.coverage.run]

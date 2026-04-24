@@ -24,6 +24,7 @@ from typing import Any, ClassVar
 __all__ = [
     "AuthError",
     "CerberusAPIError",
+    "NotFoundError",
     "QuotaError",
     "RateLimitError",
     "ServerError",
@@ -201,6 +202,16 @@ class AuthError(CerberusAPIError):
     """Raised for ``401 Unauthorized`` and ``403 Forbidden`` responses."""
 
 
+class NotFoundError(CerberusAPIError):
+    """Raised for ``404 Not Found`` responses.
+
+    Distinguishes missing resources from transient/authentication failures so
+    callers can branch on ``except NotFoundError`` without parsing
+    ``.status``. Still subclasses :class:`CerberusAPIError`, so existing
+    broad ``except CerberusAPIError`` handlers continue to catch it.
+    """
+
+
 class ValidationError(CerberusAPIError):
     """Raised for ``422 Unprocessable Entity`` responses.
 
@@ -242,6 +253,7 @@ CerberusAPIError._STATUS_DISPATCH.update(
         401: AuthError,
         403: AuthError,
         402: QuotaError,
+        404: NotFoundError,
         422: ValidationError,
         429: RateLimitError,
     }

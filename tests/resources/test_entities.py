@@ -114,14 +114,20 @@ class TestSyncEntitiesResource:
         resource = EntitiesResource(sync_client)
         assert resource.material_events("76123456-7") == [{"ok": 1}]
 
-    def test_sanctions_happy_path(
+    def test_sanctions_happy_path_hits_by_entity_endpoint(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get("/entities/76123456-7/sanctions").mock(
+        """G2: sanctions(id_) must hit /sanctions/by-entity/{id_}, NOT
+        /entities/{id}/sanctions. The old path was fictional — see CHANGELOG v0.2.0.
+        """
+        route = respx_mock.get("/sanctions/by-entity/76123456-7").mock(
             return_value=httpx.Response(200, json={"data": [{"id": "s1"}]})
         )
         resource = EntitiesResource(sync_client)
         assert resource.sanctions("76123456-7") == [{"id": "s1"}]
+        assert route.called
+        # Sanity: the old path must NOT be the one hit.
+        assert "/entities/76123456-7/sanctions" not in str(route.calls.last.request.url.path)
 
     def test_directors_happy_path(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
@@ -226,13 +232,95 @@ class TestSyncEntitiesResource:
     def test_path_traversal_id_is_percent_encoded(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        """User-supplied id_ containing '../' must be percent-encoded, not traversed."""
-        route = respx_mock.get("/entities/..%2Fadmin/sanctions").mock(
+        """User-supplied id_ containing '../' must be percent-encoded, not traversed.
+
+        Post-G2 fix the target path is now /sanctions/by-entity/{id}; the id
+        segment must still be percent-encoded to avoid traversal.
+        """
+        route = respx_mock.get("/sanctions/by-entity/..%2Fadmin").mock(
             return_value=httpx.Response(200, json={"data": []})
         )
         resource = EntitiesResource(sync_client)
         result = resource.sanctions("../admin")
         assert result == []
+        assert route.called
+
+    # ------------------------------------------------------------------
+    # G12 — by_rut
+    # ------------------------------------------------------------------
+
+    def test_by_rut_dotted_form(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """by_rut must percent-encode the RUT so dots survive round-trip."""
+        route = respx_mock.get("/entities/by-rut/96.505.760-9").mock(
+            return_value=httpx.Response(
+                200,
+                json={"id": "ent_1", "rut": "96.505.760-9", "legal_name": "Falabella"},
+            )
+        )
+        resource = EntitiesResource(sync_client)
+        result = resource.by_rut("96.505.760-9")
+        assert result == {"id": "ent_1", "rut": "96.505.760-9", "legal_name": "Falabella"}
+        assert route.called
+
+    def test_by_rut_plain_form(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/entities/by-rut/96505760-9").mock(
+            return_value=httpx.Response(200, json={"id": "ent_1"})
+        )
+        resource = EntitiesResource(sync_client)
+        assert resource.by_rut("96505760-9") == {"id": "ent_1"}
+        assert route.called
+
+    def test_by_rut_path_traversal_hardened(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/entities/by-rut/..%2Fadmin").mock(
+            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
+        )
+        resource = EntitiesResource(sync_client)
+        from cerberus_compliance.errors import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            resource.by_rut("../admin")
+        assert route.called
+
+    # ------------------------------------------------------------------
+    # G13 — ownership
+    # ------------------------------------------------------------------
+
+    def test_ownership_returns_aggregate(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/entities/ent_1/ownership").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "entity_id": "ent_1",
+                    "shareholders": [{"name": "Holding X", "pct": 55.0}],
+                    "ubo_chain": [{"depth": 1, "name": "Foo"}],
+                },
+            )
+        )
+        resource = EntitiesResource(sync_client)
+        result = resource.ownership("ent_1")
+        assert result["entity_id"] == "ent_1"
+        assert len(result["shareholders"]) == 1
+        assert route.called
+
+    def test_ownership_percent_encodes_id(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/entities/..%2Fadmin/ownership").mock(
+            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
+        )
+        resource = EntitiesResource(sync_client)
+        from cerberus_compliance.errors import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            resource.ownership("../admin")
         assert route.called
 
 
@@ -299,7 +387,7 @@ class TestAsyncEntitiesResource:
     async def test_async_sanctions_happy_path(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get("/entities/76123456-7/sanctions").mock(
+        respx_mock.get("/sanctions/by-entity/76123456-7").mock(
             return_value=httpx.Response(200, json={"data": [{"id": "s1"}, "skip-me", 99]})
         )
         resource = AsyncEntitiesResource(async_client)
@@ -368,3 +456,27 @@ class TestAsyncEntitiesResource:
         result = await resource.material_events("../admin")
         assert result == []
         assert route.called
+
+    # ------------------------------------------------------------------
+    # G12/G13 — async by_rut + ownership mirrors
+    # ------------------------------------------------------------------
+
+    async def test_async_by_rut(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/entities/by-rut/96.505.760-9").mock(
+            return_value=httpx.Response(200, json={"id": "ent_1", "rut": "96.505.760-9"})
+        )
+        resource = AsyncEntitiesResource(async_client)
+        result = await resource.by_rut("96.505.760-9")
+        assert result == {"id": "ent_1", "rut": "96.505.760-9"}
+
+    async def test_async_ownership(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/entities/ent_1/ownership").mock(
+            return_value=httpx.Response(200, json={"entity_id": "ent_1", "shareholders": []})
+        )
+        resource = AsyncEntitiesResource(async_client)
+        result = await resource.ownership("ent_1")
+        assert result["entity_id"] == "ent_1"

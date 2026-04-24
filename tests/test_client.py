@@ -32,6 +32,7 @@ from cerberus_compliance.client import (
 from cerberus_compliance.errors import (
     AuthError,
     CerberusAPIError,
+    NotFoundError,
     QuotaError,
     RateLimitError,
     ServerError,
@@ -227,7 +228,7 @@ class TestSyncRequestErrorMapping:
             sync_client._request("GET", "/p")
         assert exc.value.request_id == "req-123"
 
-    def test_404_raises_base_api_error(
+    def test_404_raises_not_found_error(
         self,
         sync_client: CerberusClient,
         respx_mock: respx.MockRouter,
@@ -236,10 +237,11 @@ class TestSyncRequestErrorMapping:
         respx_mock.get("/p").mock(
             return_value=httpx.Response(404, json=problem_json(status=404, title="Not Found"))
         )
-        with pytest.raises(CerberusAPIError) as exc:
+        with pytest.raises(NotFoundError) as exc:
             sync_client._request("GET", "/p")
-        # Not an Auth/Quota/Validation/RateLimit/Server subclass, just the base.
-        assert type(exc.value) is CerberusAPIError
+        # NotFoundError subclasses CerberusAPIError so broad handlers still catch it.
+        assert isinstance(exc.value, CerberusAPIError)
+        assert exc.value.status == 404
 
 
 # ---------------------------------------------------------------------------
