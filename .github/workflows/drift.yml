@@ -26,7 +26,7 @@ jobs:
         run: python scripts/check_sdk_drift.py --base-url https://compliance.cerberus.cl/v1 --fail-on-drift
       - name: Open issue on drift detection
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const today = new Date().toISOString().slice(0, 10);
