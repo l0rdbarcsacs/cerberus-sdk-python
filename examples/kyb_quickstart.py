@@ -21,11 +21,10 @@ Optional flags ``--base-url`` and ``--api-key`` override the defaults for
 staging / local runs. Install ``rich`` (``pip install rich``) for prettier
 output; plain text is used automatically when ``rich`` is unavailable.
 
-This example targets the foundation-only surface of the SDK (Instance A).
-Once ``feat/resources-1`` (Instance B) lands with typed sub-resource
-accessors, the ``client._request`` calls below should be migrated to
-``client.entities.get(...)``, ``client.entities.material_events.list(...)``,
-etc. — see the ``TODO(#P4-B-merge)`` markers.
+Uses the typed resource accessors introduced with ``feat/resources-1``:
+``client.entities.list(rut=...)``, ``client.material_events.list(...)``,
+``client.sanctions.list(...)``, ``client.entities.directors(...)``, and
+``client.entities.regulations(...)``. No low-level ``_request`` fallbacks.
 """
 
 from __future__ import annotations
@@ -89,16 +88,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 # --------------------------------------------------------------------------- #
-# API calls (low-level: use _request until Instance B merges)                 #
+# API calls (typed resource accessors from feat/resources-1)                  #
 # --------------------------------------------------------------------------- #
-
-
-def _unwrap_list(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extract a ``list[dict]`` from a ``{"data": [...]}`` list envelope."""
-    data = payload.get("data", [])
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
 
 
 def resolve_entity(client: CerberusClient, rut: str) -> dict[str, Any] | None:
@@ -106,54 +97,28 @@ def resolve_entity(client: CerberusClient, rut: str) -> dict[str, Any] | None:
 
     Returns ``None`` when no entity is found.
     """
-    # TODO(#P4-B-merge): switch to client.entities.get(rut=...) once feat/resources-1 lands.
-    payload = client._request(
-        "GET",
-        "/entities",
-        params={"rut": rut, "limit": 1},
-    )
-    entities = _unwrap_list(payload)
+    entities = client.entities.list(rut=rut, limit=1)
     return entities[0] if entities else None
 
 
 def list_material_events(client: CerberusClient, entity_id: str) -> list[dict[str, Any]]:
     """Return the five most recent material/essential facts for an entity."""
-    # TODO(#P4-B-merge): switch to client.entities.material_events.list(...) once
-    # feat/resources-1 lands.
-    payload = client._request(
-        "GET",
-        f"/entities/{entity_id}/material_events",
-        params={"limit": 5},
-    )
-    return _unwrap_list(payload)
+    return client.material_events.list(entity_id=entity_id, limit=5)
 
 
 def list_active_sanctions(client: CerberusClient, entity_id: str) -> list[dict[str, Any]]:
     """Return the entity's currently active sanctions."""
-    # TODO(#P4-B-merge): switch to client.entities.sanctions.list(active=True) once
-    # feat/resources-1 lands.
-    payload = client._request(
-        "GET",
-        f"/entities/{entity_id}/sanctions",
-        params={"active": "true"},
-    )
-    return _unwrap_list(payload)
+    return client.sanctions.list(target_id=entity_id, active=True)
 
 
 def list_directors(client: CerberusClient, entity_id: str) -> list[dict[str, Any]]:
     """Return the entity's directors on record."""
-    # TODO(#P4-B-merge): switch to client.entities.directors.list(...) once
-    # feat/resources-1 lands.
-    payload = client._request("GET", f"/entities/{entity_id}/directors")
-    return _unwrap_list(payload)
+    return client.entities.directors(entity_id)
 
 
 def fetch_regulations(client: CerberusClient, entity_id: str) -> list[dict[str, Any]]:
     """Return the entity's regulatory profile (regulator, license, status)."""
-    # TODO(#P4-B-merge): switch to client.entities.regulations.list(...) once
-    # feat/resources-1 lands.
-    payload = client._request("GET", f"/entities/{entity_id}/regulations")
-    return _unwrap_list(payload)
+    return client.entities.regulations(entity_id)
 
 
 # --------------------------------------------------------------------------- #
