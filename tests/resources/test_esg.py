@@ -27,9 +27,7 @@ class TestESGMeta:
 
 
 class TestESGSync:
-    def test_get_by_rut(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_get_by_rut(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
         route = respx_mock.get("/esg/96505760-9").mock(
             return_value=httpx.Response(
                 200,
@@ -46,9 +44,7 @@ class TestESGSync:
         assert result["ncg_461"]["reported"] is True
         assert route.called
 
-    def test_get_not_found(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_get_not_found(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
         respx_mock.get("/esg/00000000-0").mock(
             return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
         )
@@ -67,9 +63,7 @@ class TestESGSync:
             resource.get("../admin")
         assert route.called
 
-    def test_list(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_list(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
         route = respx_mock.get("/esg").mock(
             return_value=httpx.Response(
                 200,

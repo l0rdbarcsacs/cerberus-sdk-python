@@ -92,9 +92,7 @@ class TestSearchResponse:
 
 
 class TestSearchClientSync:
-    def test_search_basic(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_search_basic(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
         route = respx_mock.post("/search").mock(
             return_value=httpx.Response(200, json=_SAMPLE_RESPONSE)
         )
@@ -156,9 +154,7 @@ class TestSearchClientSync:
     def test_search_returns_typed_hits(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.post("/search").mock(
-            return_value=httpx.Response(200, json=_SAMPLE_RESPONSE)
-        )
+        respx_mock.post("/search").mock(return_value=httpx.Response(200, json=_SAMPLE_RESPONSE))
         sc = SearchClient(sync_client)
         result = sc.search(query="NCG 461 sostenibilidad")
         for hit in result.hits:
@@ -171,9 +167,7 @@ class TestSearchClientAsync:
     async def test_search_basic(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.post("/search").mock(
-            return_value=httpx.Response(200, json=_SAMPLE_RESPONSE)
-        )
+        respx_mock.post("/search").mock(return_value=httpx.Response(200, json=_SAMPLE_RESPONSE))
         sc = AsyncSearchClient(async_client)
         result = await sc.search(query="NCG 461 sostenibilidad")
         assert isinstance(result, SearchResponse)

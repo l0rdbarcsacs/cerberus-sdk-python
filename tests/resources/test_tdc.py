@@ -60,9 +60,7 @@ class TestTDCSync:
         result = resource.get("tdc-001")
         assert result["title"] == "test"
 
-    def test_get_not_found(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_get_not_found(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
         respx_mock.get("/tdc/nonexistent").mock(
             return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
         )

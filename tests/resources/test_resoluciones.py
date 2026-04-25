@@ -61,9 +61,7 @@ class TestResolucionesSync:
         result = resource.get("res-2024-0042")
         assert result["titulo"] == "Resolucion de prueba"
 
-    def test_get_not_found(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_get_not_found(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
         respx_mock.get("/resoluciones/nonexistent").mock(
             return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
         )
@@ -104,9 +102,7 @@ class TestResolucionesAsync:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get("/resoluciones").mock(
-            return_value=httpx.Response(
-                200, json={"data": [{"id": "res-async-1"}], "next": None}
-            )
+            return_value=httpx.Response(200, json={"data": [{"id": "res-async-1"}], "next": None})
         )
         resource = AsyncResolucionesResource(async_client)
         assert await resource.list() == [{"id": "res-async-1"}]
