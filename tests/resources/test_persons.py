@@ -3,7 +3,8 @@
 Post-v0.2.0 the ``/persons`` collection + detail endpoints never shipped
 on the prod API; only ``/v1/persons/{rut}/regulatory-profile`` is real.
 :class:`PersonsResource` therefore behaves as a partial deprecation shim
-(same pattern as :mod:`cerberus_compliance.resources.registries`):
+(identical pattern to the pre-v0.3.0 ``registries`` and
+``material_events`` shims which were removed in v0.3.0):
 
 - Construction is silent — neither the resource nor the parent
   ``CerberusClient`` emit a :class:`DeprecationWarning` on

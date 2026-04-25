@@ -10,38 +10,62 @@ from __future__ import annotations
 import cerberus_compliance
 
 EXPECTED_ALL = {
+    "Art12Resource",
+    "Art20Resource",
+    "AsyncArt12Resource",
+    "AsyncArt20Resource",
     "AsyncCerberusClient",
+    "AsyncComunicacionesResource",
+    "AsyncDictamenesResource",
+    "AsyncESGResource",
     "AsyncEntitiesResource",
+    "AsyncIndicadoresResource",
     "AsyncKYBResource",
-    "AsyncMaterialEventsResource",
+    "AsyncNormativaConsultaResource",
+    "AsyncNormativaHistoricResource",
     "AsyncNormativaResource",
+    "AsyncOPAsResource",
     "AsyncPersonsResource",
-    "AsyncRegistriesResource",
     "AsyncRegulationsResource",
     "AsyncRPSFResource",
+    "AsyncResolucionesResource",
     "AsyncSanctionsResource",
+    "AsyncSearchClient",
+    "AsyncTDCResource",
     "AuthError",
     "CerberusAPIError",
     "CerberusClient",
+    "ComunicacionesResource",
+    "DictamenesResource",
+    "ESGResource",
     "EntitiesResource",
+    "IndicadoresResource",
     "KYBResource",
-    "MaterialEventsResource",
+    "NormativaConsultaEstado",
+    "NormativaConsultaResource",
+    "NormativaHistoricResource",
     "NormativaResource",
     "NotFoundError",
+    "OPAsResource",
     "PersonsResource",
     "QuotaError",
     "RateLimitError",
-    "RegistriesResource",
     "RegulationsResource",
     "RPSFResource",
+    "ResolucionesResource",
     "SanctionsResource",
+    "SearchClient",
+    "SearchFilters",
+    "SearchHit",
+    "SearchResponse",
     "ServerError",
+    "TDCResource",
     "ValidationError",
 }
 
 
-def test_version_is_semver_0_2_0() -> None:
-    assert cerberus_compliance.__version__ == "0.2.0"
+def test_version_is_semver_0_4_0() -> None:
+    assert cerberus_compliance.__version__ == "0.4.0"
 
 
 def test_all_matches_expected_surface() -> None:
@@ -73,3 +97,20 @@ def test_client_classes_exposed() -> None:
 
     assert CerberusClient.__name__ == "CerberusClient"
     assert AsyncCerberusClient.__name__ == "AsyncCerberusClient"
+
+
+def test_dead_shims_are_gone() -> None:
+    """v0.3.0 breaking change: the registries + material_events shims are removed.
+
+    If these ever come back, ``__all__`` should not re-export them and
+    attribute lookup on the package should fail.
+    """
+    for removed in (
+        "RegistriesResource",
+        "AsyncRegistriesResource",
+        "MaterialEventsResource",
+        "AsyncMaterialEventsResource",
+        "RegistryType",
+    ):
+        assert removed not in cerberus_compliance.__all__
+        assert not hasattr(cerberus_compliance, removed)

@@ -72,15 +72,67 @@ rotation and secret-hygiene guidance.
 Every resource has a sync (`client.<resource>`) and async
 (`async_client.<resource>`) mirror; only the `await` differs.
 
-| Resource              | Endpoint(s)                                                          | Key methods                                                                   |
-|-----------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| `client.kyb`          | `GET /kyb/{rut}`                                                     | `get(rut, *, as_of=None, include=[...])`                                      |
-| `client.entities`     | `/entities`, `/entities/{id}`, `/entities/by-rut/{rut}`              | `list`, `get`, `by_rut`, `ownership`, `directors`, `sanctions`, `regulations`, `iter_all` |
-| `client.sanctions`    | `/sanctions`, `/sanctions/{id}`                                      | `list(*, target_id, source, active, limit)`, `get`, `iter_all`                |
-| `client.regulations`  | `/regulations`, `/regulations/search`                                | `list(*, entity_id, framework, limit)`, `get`, `search(q, **params)`, `iter_all` |
-| `client.rpsf`         | `/rpsf`, `/rpsf/by-entity/{id}`, `/rpsf/by-servicio/{s}`             | `list(**filters)`, `get`, `by_entity`, `by_servicio`, `iter_all`              |
-| `client.normativa`    | `/normativa`, `/normativa/{id}/mercado`                              | `list(**filters)`, `get`, `mercado`, `iter_all`                               |
-| `client.persons`      | `/persons/{rut}/regulatory-profile`                                  | `regulatory_profile(rut)`                                                     |
+| Resource                     | Endpoint(s)                                                          | Key methods                                                                   |
+|------------------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| `client.kyb`                 | `GET /kyb/{rut}`                                                     | `get(rut, *, as_of=None, include=[...])`                                      |
+| `client.entities`            | `/entities`, `/entities/{id}`, `/entities/by-rut/{rut}`              | `list`, `get`, `by_rut`, `ownership`, `directors`, `sanctions`, `iter_all`    |
+| `client.sanctions`           | `/sanctions`, `/sanctions/{id}`                                      | `list(*, target_id, source, active, limit)`, `get`, `iter_all`                |
+| `client.regulations`         | `/regulations`, `/regulations/search`                                | `list(*, entity_id, framework, limit)`, `get`, `search(q, **params)`, `iter_all` |
+| `client.rpsf`                | `/rpsf`, `/rpsf/by-entity/{id}`, `/rpsf/by-servicio/{s}`             | `list(**filters)`, `get`, `by_entity`, `by_servicio`, `iter_all`              |
+| `client.normativa`           | `/normativa`, `/normativa/{id}/mercado`                              | `list(**filters)`, `get`, `mercado`, `iter_all`                               |
+| `client.normativa_consulta`  | `/normativa-consulta?estado=abierta\|cerrada` (v0.3.0)               | `list(estado, limit, offset)`                                                 |
+| `client.indicadores`         | `/indicadores/{name}` — UF/UTM/USD/EUR/IPC/TMC (v0.3.0)              | `get(name, date=None)`, `history(name, from_, to)`                            |
+| `client.persons`             | `/persons/{rut}/regulatory-profile`                                  | `regulatory_profile(rut)`                                                     |
+| `client.resoluciones`        | `/resoluciones`, `/resoluciones/{id}` (v0.4.0)                       | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.opas`                | `/opas`, `/opas/{id}` (v0.4.0)                                       | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.tdc`                 | `/tdc`, `/tdc/{id}` (v0.4.0)                                         | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.art12`               | `/art12`, `/art12/{id}` (v0.4.0)                                     | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.art20`               | `/art20`, `/art20/{id}` (v0.4.0)                                     | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.comunicaciones`      | `/comunicaciones`, `/comunicaciones/{id}` (v0.4.0)                   | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.dictamenes`          | `/dictamenes`, `/dictamenes/{id}` (v0.4.0)                           | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.esg`                 | `/esg/{rut}` — NCG 461 sustainability disclosures (v0.4.0)           | `get(rut)`, `list(**filters)`, `iter_all`                                     |
+| `client.normativa_historic`  | `/normativa/historic`, `/normativa/historic/{id}` (v0.4.0)           | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.search`              | `POST /search` — universal CMF semantic search (v0.4.0)              | `search(query, filters=None, top_k=10)` → `SearchResponse`                   |
+
+## Universal CMF semantic search
+
+v0.4.0 adds universal CMF semantic search via `POST /search` and nine new
+resources covering resoluciones, OPAs, TDC, Art.12/20, comunicaciones,
+dictámenes, ESG (NCG 461), and historic normativa. The search endpoint is
+backed by Qdrant vector search and AWS Bedrock Titan Embeddings — a free-text
+query is embedded server-side and matched against the full CMF document corpus.
+
+```python
+from cerberus_compliance import CerberusClient
+from cerberus_compliance.resources.search import SearchFilters
+
+with CerberusClient() as client:
+    # Search across all document types
+    results = client.search.search(
+        query="NCG 461 sostenibilidad emisores",
+        top_k=5,
+    )
+    for hit in results.hits:
+        print(f"[{hit.doc_type}] {hit.score:.3f}  {hit.title}")
+
+    # Narrow to specific document types and date range
+    results = client.search.search(
+        query="cambio de control sociedad anónima abierta",
+        filters=SearchFilters(
+            doc_types=["art20", "resoluciones"],
+            from_date="2024-01-01",
+            to_date="2024-12-31",
+        ),
+        top_k=10,
+    )
+```
+
+The `SearchFilters` Pydantic model accepts:
+
+- `doc_types: list[str] | None` — restrict to specific document types.
+- `from_date: str | None` — ISO 8601 date lower bound (`YYYY-MM-DD`).
+- `to_date: str | None` — ISO 8601 date upper bound.
+- `entity_rut: str | None` — restrict to documents related to a specific RUT.
 
 Two quick examples (drop in an API key and run):
 
@@ -307,6 +359,8 @@ Every example below is runnable against prod with
 | [`regulations_search.py`](./examples/regulations_search.py)                | `regulations.list`, `get`, `search(q="sanciones")`.                      |
 | [`rpsf_explore.py`](./examples/rpsf_explore.py)                            | `rpsf.list`, `by_entity`, `by_servicio("plataforma_financiamiento_colectivo")`. |
 | [`normativa_explore.py`](./examples/normativa_explore.py)                  | `normativa.list`, `get`, `mercado(id)`.                                  |
+| [`normativa_consulta_basic.py`](./examples/normativa_consulta_basic.py)    | `normativa_consulta.list(estado=...)` + per-mercado rollup (v0.3.0).     |
+| [`indicadores_basic.py`](./examples/indicadores_basic.py)                  | `indicadores.get("UF")`, `.get("USD", date=...)`, `.history(...)` (v0.3.0). |
 | [`persons_profile.py`](./examples/persons_profile.py)                      | `persons.regulatory_profile("11.111.111-1")` (Carlos Heller — PEP-lite).|
 | [`async_concurrent_lookups.py`](./examples/async_concurrent_lookups.py)    | `asyncio.gather` over a 5-RUT portfolio with `AsyncCerberusClient`.      |
 | [`error_handling.py`](./examples/error_handling.py)                        | Each exception in the hierarchy with a real trigger.                     |
@@ -315,27 +369,29 @@ Every example below is runnable against prod with
 | [`webhook_handler.py`](./examples/webhook_handler.py)                      | FastAPI receiver with HMAC-SHA256 signature + replay protection.         |
 | [`notebooks/01-kyb-quickstart.ipynb`](./examples/notebooks/01-kyb-quickstart.ipynb) | Narrated Jupyter quickstart for analysts.                        |
 
-## Deprecations (v0.2.0)
+## Breaking changes in v0.3.0
 
-Three surfaces shipped before the v0.2.0 audit and turned out to target
-fictional endpoints. They remain as compatibility shims that **emit a
-`DeprecationWarning` on first call** and raise `NotImplementedError` with
-a pointer to the replacement. All three are **scheduled for removal in
-v0.3.0**.
+The `client.registries` and `client.material_events` shims — deprecated
+in v0.2.0 and scheduled for removal — are **gone** as of v0.3.0. Their
+methods already raised `NotImplementedError`, so the runtime-breaking
+impact is limited to importers that referenced the classes themselves:
 
-| Deprecated                                                    | Migrate to                                                                 |
-|---------------------------------------------------------------|----------------------------------------------------------------------------|
-| `client.persons.list()` / `client.persons.get()`              | `client.persons.regulatory_profile(rut)` or `client.entities.directors(entity_id)` |
-| `client.registries.list()` / `.get()` / `.iter_all()`         | `client.entities.by_rut(rut)` (and `client.rpsf` for CMF registry records) |
-| `client.material_events.list()` / `.get()` / `.iter_all()`    | `client.kyb.get(rut)["recent_material_events"]` or `entities.get(id)`      |
+| Removed                                                        | Migrate to                                                                 |
+|----------------------------------------------------------------|----------------------------------------------------------------------------|
+| `client.registries.list()` / `.get()` / `.lookup_rut()` / `.iter_all()` | `client.entities.by_rut(rut)` (and `client.rpsf` for CMF registry records) |
+| `client.material_events.list()` / `.get()` / `.iter_all()`     | `client.kyb.get(rut)["recent_material_events"]` or `client.entities.material_events(entity_id)` |
+| `from cerberus_compliance import RegistriesResource`           | — (removed from `__all__`)                                                 |
+| `from cerberus_compliance import MaterialEventsResource`       | — (removed from `__all__`)                                                 |
 
-`client.registries.lookup_rut(rut)` still works (it emits a warning and
-forwards to `entities.by_rut`) — it is the single shim we kept live so
-in-flight integrations do not break.
+`client.persons.list()` and `client.persons.get()` remain as
+`DeprecationWarning`-then-`NotImplementedError` shims for one more release
+(scheduled removal in v0.4.0). Migrate to
+`client.persons.regulatory_profile(rut)` or
+`client.entities.directors(entity_id)`.
 
 ## Status / roadmap
 
-`v0.2.0` tracks the real production API at `https://compliance.cerberus.cl/v1`.
+`v0.3.0` tracks the real production API at `https://compliance.cerberus.cl/v1`.
 Typed resource coverage:
 
 | Surface                                                                  | Status              |
@@ -349,8 +405,11 @@ Typed resource coverage:
 | `client.sanctions`, `client.regulations` (+ `search`)                    | Shipped in v0.2.0   |
 | `client.rpsf` (CMF Registro Público de Servicios Financieros)            | Shipped in v0.2.0   |
 | `client.normativa` (regulatory-text catalogue + `mercado` mapping)       | Shipped in v0.2.0   |
-| `client.registries`, `client.material_events`, `persons.list/get`        | **Deprecated** in v0.2.0; removed in v0.3.0 |
-| Webhook signature helper (SDK-side)                                      | Planned v0.3.0      |
+| `client.indicadores` (CMF Indicadores API v3 — UF/UTM/USD/EUR/IPC/TMC)   | Shipped in v0.3.0   |
+| `client.normativa_consulta` (CMF rulemaking consultations, abierta/cerrada) | Shipped in v0.3.0 |
+| `client.registries`, `client.material_events`                            | **Removed** in v0.3.0 (were deprecated shims in v0.2.0) |
+| `persons.list/get` deprecated shims                                      | Scheduled removal in v0.4.0 |
+| Webhook signature helper (SDK-side)                                      | Planned v0.4.0      |
 
 For endpoints not yet wrapped by a typed resource, the low-level
 `client._request(method, path, *, params=..., json=...)` transport is
