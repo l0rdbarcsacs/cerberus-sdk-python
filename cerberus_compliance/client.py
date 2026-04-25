@@ -30,10 +30,21 @@ import httpx
 
 from cerberus_compliance.auth import ApiKeyAuth, resolve_api_key
 from cerberus_compliance.errors import CerberusAPIError
+from cerberus_compliance.resources.art12 import Art12Resource, AsyncArt12Resource
+from cerberus_compliance.resources.art20 import Art20Resource, AsyncArt20Resource
+from cerberus_compliance.resources.comunicaciones import (
+    AsyncComunicacionesResource,
+    ComunicacionesResource,
+)
+from cerberus_compliance.resources.dictamenes import (
+    AsyncDictamenesResource,
+    DictamenesResource,
+)
 from cerberus_compliance.resources.entities import (
     AsyncEntitiesResource,
     EntitiesResource,
 )
+from cerberus_compliance.resources.esg import AsyncESGResource, ESGResource
 from cerberus_compliance.resources.indicadores import (
     AsyncIndicadoresResource,
     IndicadoresResource,
@@ -50,6 +61,11 @@ from cerberus_compliance.resources.normativa_consulta import (
     AsyncNormativaConsultaResource,
     NormativaConsultaResource,
 )
+from cerberus_compliance.resources.normativa_historic import (
+    AsyncNormativaHistoricResource,
+    NormativaHistoricResource,
+)
+from cerberus_compliance.resources.opas import AsyncOPAsResource, OPAsResource
 from cerberus_compliance.resources.persons import (
     AsyncPersonsResource,
     PersonsResource,
@@ -57,6 +73,10 @@ from cerberus_compliance.resources.persons import (
 from cerberus_compliance.resources.regulations import (
     AsyncRegulationsResource,
     RegulationsResource,
+)
+from cerberus_compliance.resources.resoluciones import (
+    AsyncResolucionesResource,
+    ResolucionesResource,
 )
 from cerberus_compliance.resources.rpsf import (
     AsyncRPSFResource,
@@ -66,6 +86,8 @@ from cerberus_compliance.resources.sanctions import (
     AsyncSanctionsResource,
     SanctionsResource,
 )
+from cerberus_compliance.resources.search import AsyncSearchClient, SearchClient
+from cerberus_compliance.resources.tdc import AsyncTDCResource, TDCResource
 from cerberus_compliance.retry import RetryConfig, backoff_seconds, should_retry
 
 __all__ = [
@@ -158,15 +180,25 @@ class CerberusClient:
     base_url: str
     timeout: float
     retry: RetryConfig
+    art12: Art12Resource
+    art20: Art20Resource
+    comunicaciones: ComunicacionesResource
+    dictamenes: DictamenesResource
     entities: EntitiesResource
+    esg: ESGResource
     indicadores: IndicadoresResource
     kyb: KYBResource
     normativa: NormativaResource
     normativa_consulta: NormativaConsultaResource
+    normativa_historic: NormativaHistoricResource
+    opas: OPAsResource
     persons: PersonsResource
+    resoluciones: ResolucionesResource
     rpsf: RPSFResource
     sanctions: SanctionsResource
     regulations: RegulationsResource
+    search: SearchClient
+    tdc: TDCResource
 
     def __init__(
         self,
@@ -209,6 +241,17 @@ class CerberusClient:
         self.normativa = NormativaResource(self)
         self.normativa_consulta = NormativaConsultaResource(self)
         self.indicadores = IndicadoresResource(self)
+        # v0.4.0 — 9 new resources (P5.3)
+        self.resoluciones = ResolucionesResource(self)
+        self.opas = OPAsResource(self)
+        self.tdc = TDCResource(self)
+        self.art12 = Art12Resource(self)
+        self.art20 = Art20Resource(self)
+        self.comunicaciones = ComunicacionesResource(self)
+        self.dictamenes = DictamenesResource(self)
+        self.esg = ESGResource(self)
+        self.normativa_historic = NormativaHistoricResource(self)
+        self.search = SearchClient(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
@@ -331,15 +374,25 @@ class AsyncCerberusClient:
     base_url: str
     timeout: float
     retry: RetryConfig
+    art12: AsyncArt12Resource
+    art20: AsyncArt20Resource
+    comunicaciones: AsyncComunicacionesResource
+    dictamenes: AsyncDictamenesResource
     entities: AsyncEntitiesResource
+    esg: AsyncESGResource
     indicadores: AsyncIndicadoresResource
     kyb: AsyncKYBResource
     normativa: AsyncNormativaResource
     normativa_consulta: AsyncNormativaConsultaResource
+    normativa_historic: AsyncNormativaHistoricResource
+    opas: AsyncOPAsResource
     persons: AsyncPersonsResource
+    resoluciones: AsyncResolucionesResource
     rpsf: AsyncRPSFResource
     sanctions: AsyncSanctionsResource
     regulations: AsyncRegulationsResource
+    search: AsyncSearchClient
+    tdc: AsyncTDCResource
 
     def __init__(
         self,
@@ -375,6 +428,17 @@ class AsyncCerberusClient:
         self.normativa = AsyncNormativaResource(self)
         self.normativa_consulta = AsyncNormativaConsultaResource(self)
         self.indicadores = AsyncIndicadoresResource(self)
+        # v0.4.0 — 9 new resources (P5.3)
+        self.resoluciones = AsyncResolucionesResource(self)
+        self.opas = AsyncOPAsResource(self)
+        self.tdc = AsyncTDCResource(self)
+        self.art12 = AsyncArt12Resource(self)
+        self.art20 = AsyncArt20Resource(self)
+        self.comunicaciones = AsyncComunicacionesResource(self)
+        self.dictamenes = AsyncDictamenesResource(self)
+        self.esg = AsyncESGResource(self)
+        self.normativa_historic = AsyncNormativaHistoricResource(self)
+        self.search = AsyncSearchClient(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 

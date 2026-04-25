@@ -75,7 +75,7 @@ Every resource has a sync (`client.<resource>`) and async
 | Resource                     | Endpoint(s)                                                          | Key methods                                                                   |
 |------------------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | `client.kyb`                 | `GET /kyb/{rut}`                                                     | `get(rut, *, as_of=None, include=[...])`                                      |
-| `client.entities`            | `/entities`, `/entities/{id}`, `/entities/by-rut/{rut}`              | `list`, `get`, `by_rut`, `ownership`, `directors`, `sanctions`, `regulations`, `material_events`, `iter_all` |
+| `client.entities`            | `/entities`, `/entities/{id}`, `/entities/by-rut/{rut}`              | `list`, `get`, `by_rut`, `ownership`, `directors`, `sanctions`, `iter_all`    |
 | `client.sanctions`           | `/sanctions`, `/sanctions/{id}`                                      | `list(*, target_id, source, active, limit)`, `get`, `iter_all`                |
 | `client.regulations`         | `/regulations`, `/regulations/search`                                | `list(*, entity_id, framework, limit)`, `get`, `search(q, **params)`, `iter_all` |
 | `client.rpsf`                | `/rpsf`, `/rpsf/by-entity/{id}`, `/rpsf/by-servicio/{s}`             | `list(**filters)`, `get`, `by_entity`, `by_servicio`, `iter_all`              |
@@ -83,6 +83,56 @@ Every resource has a sync (`client.<resource>`) and async
 | `client.normativa_consulta`  | `/normativa-consulta?estado=abierta\|cerrada` (v0.3.0)               | `list(estado, limit, offset)`                                                 |
 | `client.indicadores`         | `/indicadores/{name}` — UF/UTM/USD/EUR/IPC/TMC (v0.3.0)              | `get(name, date=None)`, `history(name, from_, to)`                            |
 | `client.persons`             | `/persons/{rut}/regulatory-profile`                                  | `regulatory_profile(rut)`                                                     |
+| `client.resoluciones`        | `/resoluciones`, `/resoluciones/{id}` (v0.4.0)                       | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.opas`                | `/opas`, `/opas/{id}` (v0.4.0)                                       | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.tdc`                 | `/tdc`, `/tdc/{id}` (v0.4.0)                                         | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.art12`               | `/art12`, `/art12/{id}` (v0.4.0)                                     | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.art20`               | `/art20`, `/art20/{id}` (v0.4.0)                                     | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.comunicaciones`      | `/comunicaciones`, `/comunicaciones/{id}` (v0.4.0)                   | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.dictamenes`          | `/dictamenes`, `/dictamenes/{id}` (v0.4.0)                           | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.esg`                 | `/esg/{rut}` — NCG 461 sustainability disclosures (v0.4.0)           | `get(rut)`, `list(**filters)`, `iter_all`                                     |
+| `client.normativa_historic`  | `/normativa/historic`, `/normativa/historic/{id}` (v0.4.0)           | `list(**filters)`, `get`, `iter_all`                                          |
+| `client.search`              | `POST /search` — universal CMF semantic search (v0.4.0)              | `search(query, filters=None, top_k=10)` → `SearchResponse`                   |
+
+## Universal CMF semantic search
+
+v0.4.0 adds universal CMF semantic search via `POST /search` and nine new
+resources covering resoluciones, OPAs, TDC, Art.12/20, comunicaciones,
+dictámenes, ESG (NCG 461), and historic normativa. The search endpoint is
+backed by Qdrant vector search and AWS Bedrock Titan Embeddings — a free-text
+query is embedded server-side and matched against the full CMF document corpus.
+
+```python
+from cerberus_compliance import CerberusClient
+from cerberus_compliance.resources.search import SearchFilters
+
+with CerberusClient() as client:
+    # Search across all document types
+    results = client.search.search(
+        query="NCG 461 sostenibilidad emisores",
+        top_k=5,
+    )
+    for hit in results.hits:
+        print(f"[{hit.doc_type}] {hit.score:.3f}  {hit.title}")
+
+    # Narrow to specific document types and date range
+    results = client.search.search(
+        query="cambio de control sociedad anónima abierta",
+        filters=SearchFilters(
+            doc_types=["art20", "resoluciones"],
+            from_date="2024-01-01",
+            to_date="2024-12-31",
+        ),
+        top_k=10,
+    )
+```
+
+The `SearchFilters` Pydantic model accepts:
+
+- `doc_types: list[str] | None` — restrict to specific document types.
+- `from_date: str | None` — ISO 8601 date lower bound (`YYYY-MM-DD`).
+- `to_date: str | None` — ISO 8601 date upper bound.
+- `entity_rut: str | None` — restrict to documents related to a specific RUT.
 
 Two quick examples (drop in an API key and run):
 

@@ -10,39 +10,62 @@ from __future__ import annotations
 import cerberus_compliance
 
 EXPECTED_ALL = {
+    "Art12Resource",
+    "Art20Resource",
+    "AsyncArt12Resource",
+    "AsyncArt20Resource",
     "AsyncCerberusClient",
+    "AsyncComunicacionesResource",
+    "AsyncDictamenesResource",
+    "AsyncESGResource",
     "AsyncEntitiesResource",
     "AsyncIndicadoresResource",
     "AsyncKYBResource",
     "AsyncNormativaConsultaResource",
+    "AsyncNormativaHistoricResource",
     "AsyncNormativaResource",
+    "AsyncOPAsResource",
     "AsyncPersonsResource",
     "AsyncRegulationsResource",
     "AsyncRPSFResource",
+    "AsyncResolucionesResource",
     "AsyncSanctionsResource",
+    "AsyncSearchClient",
+    "AsyncTDCResource",
     "AuthError",
     "CerberusAPIError",
     "CerberusClient",
+    "ComunicacionesResource",
+    "DictamenesResource",
+    "ESGResource",
     "EntitiesResource",
     "IndicadoresResource",
     "KYBResource",
     "NormativaConsultaEstado",
     "NormativaConsultaResource",
+    "NormativaHistoricResource",
     "NormativaResource",
     "NotFoundError",
+    "OPAsResource",
     "PersonsResource",
     "QuotaError",
     "RateLimitError",
     "RegulationsResource",
     "RPSFResource",
+    "ResolucionesResource",
     "SanctionsResource",
+    "SearchClient",
+    "SearchFilters",
+    "SearchHit",
+    "SearchResponse",
     "ServerError",
+    "TDCResource",
     "ValidationError",
 }
 
 
-def test_version_is_semver_0_3_0_rc1() -> None:
-    assert cerberus_compliance.__version__ == "0.3.0rc1"
+def test_version_is_semver_0_4_0() -> None:
+    assert cerberus_compliance.__version__ == "0.4.0"
 
 
 def test_all_matches_expected_surface() -> None:

@@ -5,6 +5,83 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] — 2026-04-26
+
+Nine new resource modules covering the full CMF document corpus, plus
+universal semantic search powered by Qdrant + Bedrock Titan Embeddings.
+This release completes the P5.3 Wave E SDK surface.
+
+### Added
+
+- **`client.resoluciones`** — typed accessor for `GET /resoluciones` and
+  `GET /resoluciones/{id}`. Wraps CMF formal resolutions (numbered
+  administrative acts). Methods: `list(**params)`, `get(id_)`, `iter_all(**filters)`.
+  Async mirror: `AsyncResolucionesResource`.
+
+- **`client.opas`** — typed accessor for `GET /opas` and `GET /opas/{id}`.
+  Wraps OPAs (Ofertas Públicas de Adquisición) regulated under Ley 18.045
+  Title XXV. Methods: `list`, `get`, `iter_all`. Async mirror: `AsyncOPAsResource`.
+
+- **`client.tdc`** — typed accessor for `GET /tdc` and `GET /tdc/{id}`.
+  Wraps CMF-published Tasa de Descuento de Cartera series. Methods: `list`,
+  `get`, `iter_all`. Async mirror: `AsyncTDCResource`.
+
+- **`client.art12`** — typed accessor for `GET /art12` and `GET /art12/{id}`.
+  Wraps Artículo 12 (Ley 18.045) controller / major-shareholder stake
+  disclosures. Methods: `list`, `get`, `iter_all`. Async mirror:
+  `AsyncArt12Resource`.
+
+- **`client.art20`** — typed accessor for `GET /art20` and `GET /art20/{id}`.
+  Wraps Artículo 20 (Ley 18.045) hechos esenciales filings. Methods:
+  `list`, `get`, `iter_all`. Async mirror: `AsyncArt20Resource`.
+
+- **`client.comunicaciones`** — typed accessor for `GET /comunicaciones` and
+  `GET /comunicaciones/{id}`. Wraps official CMF communications (circulars,
+  letters, notices). Methods: `list`, `get`, `iter_all`. Async mirror:
+  `AsyncComunicacionesResource`.
+
+- **`client.dictamenes`** — typed accessor for `GET /dictamenes` and
+  `GET /dictamenes/{id}`. Wraps CMF legal opinions and formal rulings.
+  Methods: `list`, `get`, `iter_all`. Async mirror: `AsyncDictamenesResource`.
+
+- **`client.esg`** — typed accessor for `GET /esg/{rut}`. Wraps NCG 461
+  (2023) ESG sustainability disclosures for publicly listed Chilean companies.
+  The primary method is `get(rut)` returning the full ESG dossier; `list`
+  enumerates all entities with ESG data. Async mirror: `AsyncESGResource`.
+
+- **`client.normativa_historic`** — typed accessor for
+  `GET /normativa/historic` and `GET /normativa/historic/{id}`. Exposes the
+  point-in-time version history of CMF regulatory texts for retroactive
+  compliance checks and change-log diffing. Methods: `list`, `get`,
+  `iter_all`. Async mirror: `AsyncNormativaHistoricResource`.
+
+- **`client.search`** — universal CMF semantic search client wrapping
+  `POST /search`. Backed by Qdrant vector search + AWS Bedrock Titan
+  Embeddings. The `search(query, filters, top_k)` method returns a
+  `SearchResponse` with ranked `SearchHit` items across the full document
+  corpus (resoluciones, OPAs, TDC, Art.12/20, comunicaciones, dictámenes,
+  ESG, normativa, normativa-consulta). `SearchFilters` Pydantic model
+  supports `doc_types`, `from_date`, `to_date`, `entity_rut` filtering.
+  Async mirror: `AsyncSearchClient`.
+
+- New Pydantic models exported from `cerberus_compliance.resources.search`:
+  `SearchFilters`, `SearchHit`, `SearchResponse`.
+
+- `scripts/check_sdk_drift.py`: `RESOURCE_COVERAGE` extended with 19 new
+  entries covering all 9 new resource endpoints + `POST /search`.
+
+### Breaking changes
+
+None. All additions are net-new attributes on `CerberusClient` /
+`AsyncCerberusClient`. No existing method signatures changed.
+
+### Release flow
+
+Release to TestPyPI + PyPI deferred to operator post-merge — credentials
+required. Tag `v0.4.0` triggers the CI release workflow automatically.
+
+[v0.4.0]: https://github.com/l0rdbarcsacs/cerberus-sdk-python/releases/tag/v0.4.0
+
 ## [v0.3.0rc1] — 2026-04-24
 
 Release candidate for v0.3.0. Adds the two new P5.2 "deep-data" resources

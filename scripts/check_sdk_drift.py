@@ -104,6 +104,25 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     # (``?periodo=``); the SDK splits that into ``get()`` + ``history()``
     # but both land on the same OpenAPI entry.
     ("GET", "/indicadores/{name}"): ("indicadores", "get"),
+    # v0.4.0 — P5.3 nine new resources + universal semantic search
+    ("GET", "/resoluciones"): ("resoluciones", "list"),
+    ("GET", "/resoluciones/{resolucion_id}"): ("resoluciones", "get"),
+    ("GET", "/opas"): ("opas", "list"),
+    ("GET", "/opas/{opa_id}"): ("opas", "get"),
+    ("GET", "/tdc"): ("tdc", "list"),
+    ("GET", "/tdc/{tdc_id}"): ("tdc", "get"),
+    ("GET", "/art12"): ("art12", "list"),
+    ("GET", "/art12/{art12_id}"): ("art12", "get"),
+    ("GET", "/art20"): ("art20", "list"),
+    ("GET", "/art20/{art20_id}"): ("art20", "get"),
+    ("GET", "/comunicaciones"): ("comunicaciones", "list"),
+    ("GET", "/comunicaciones/{comunicacion_id}"): ("comunicaciones", "get"),
+    ("GET", "/dictamenes"): ("dictamenes", "list"),
+    ("GET", "/dictamenes/{dictamen_id}"): ("dictamenes", "get"),
+    ("GET", "/esg/{rut}"): ("esg", "get"),
+    ("GET", "/normativa/historic"): ("normativa_historic", "list"),
+    ("GET", "/normativa/historic/{historic_id}"): ("normativa_historic", "get"),
+    ("POST", "/search"): ("search", "search"),
 }
 """Keep in sync with :mod:`cerberus_compliance.resources` — one entry per
 endpoint + SDK method pair the SDK intends to wrap. Path-template variable
