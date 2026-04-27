@@ -1,21 +1,38 @@
 """Typed accessor for the Cerberus Compliance ``/indicadores`` resource.
 
-Indicadores are Chilean monetary and inflation series sourced from the
-CMF Indicadores API v3 (``api.cmfchile.cl/api-sbifv3/recursos_api/``) and
-cached server-side. The six supported series are:
+Indicadores are Chilean monetary, inflation and macro series sourced
+from two upstreams and cached server-side:
 
-==========  ==========================================================
-``name``    Description
-==========  ==========================================================
-``UF``      Unidad de Fomento (inflation-indexed), CLP, from 1998-01-01.
-``UTM``     Unidad Tributaria Mensual, CLP / month, from 1990-01-01.
-``USD``     Observed USD/CLP (working-day semantics), from 1984-01-01.
-``EUR``     Observed EUR/CLP (working-day semantics), from 1999-01-01.
-``IPC``     Índice de Precios al Consumidor (monthly), from 2000-01-01.
-``TMC``     Tasa Máxima Convencional, % annualised, from 1990-01-01.
-==========  ==========================================================
+* **CMF Indicadores API v3** (``api.cmfchile.cl/api-sbifv3/recursos_api/``)
+  — six SBIF-published series: ``UF``, ``UTM``, ``USD``, ``EUR``,
+  ``IPC``, ``TMC``.
+* **Banco Central de Chile (BCCh)** — five BCentral-published macro
+  series: ``TPM`` (Tasa Política Monetaria, daily), ``IMACEC``
+  (Índice Mensual de Actividad Económica, monthly), ``IMACEC_MIN``
+  (IMACEC minero), ``IPC_BCH`` (BCentral's IPC view), and ``PIB``
+  (Producto Interno Bruto, quarterly).
 
-All values are returned as **strings** with the exact CMF-published
+==============  =============================================================
+``name``        Description
+==============  =============================================================
+``UF``          Unidad de Fomento (inflation-indexed), CLP, from 1998-01-01.
+``UTM``         Unidad Tributaria Mensual, CLP / month, from 1990-01-01.
+``USD``         Observed USD/CLP (working-day semantics), from 1984-01-01.
+``EUR``         Observed EUR/CLP (working-day semantics), from 1999-01-01.
+``IPC``         Índice de Precios al Consumidor (monthly), from 2000-01-01.
+``TMC``         Tasa Máxima Convencional, % annualised, from 1990-01-01.
+``TPM``         Tasa Política Monetaria, % annualised (daily, BCCh).
+``IMACEC``      Índice Mensual de Actividad Económica (monthly, BCCh).
+``IMACEC_MIN``  IMACEC sector minero (monthly, BCCh).
+``IPC_BCH``     IPC as published by BCCh (monthly).
+``PIB``         Producto Interno Bruto, real terms (quarterly, BCCh).
+==============  =============================================================
+
+The :data:`SbifIndicatorName` and :data:`BCentralIndicatorName` aliases
+are exposed for callers who want stricter typing on a per-source basis;
+:data:`IndicatorName` is the union both methods accept on the wire.
+
+All values are returned as **strings** with the exact upstream-published
 precision — never ``float`` — so accounting / Decimal consumers do not
 suffer silent binary-rounding drift.
 
@@ -28,6 +45,7 @@ Example
     with CerberusClient() as client:
         today = client.indicadores.get("UF")
         snap = client.indicadores.get("UF", date="2026-04-24")
+        tpm = client.indicadores.get("TPM")
         series = client.indicadores.history(
             "UF", from_="2026-01-01", to="2026-04-30"
         )
@@ -36,12 +54,54 @@ Example
 from __future__ import annotations
 
 from datetime import date as _date
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 
-__all__ = ["AsyncIndicadoresResource", "IndicadoresResource"]
+__all__ = [
+    "AsyncIndicadoresResource",
+    "BCentralIndicatorName",
+    "IndicadoresResource",
+    "IndicatorName",
+    "SbifIndicatorName",
+]
+
+SbifIndicatorName = Literal["UF", "UTM", "USD", "EUR", "IPC", "TMC"]
+"""SBIF-published series available from the CMF Indicadores API v3.
+
+Includes monetary indices (``UF``, ``UTM``), spot FX (``USD``, ``EUR``),
+inflation (``IPC``) and the regulatory ceiling rate (``TMC``).
+"""
+
+BCentralIndicatorName = Literal["TPM", "IMACEC", "IMACEC_MIN", "IPC_BCH", "PIB"]
+"""Banco Central de Chile macro series.
+
+* ``TPM`` — Tasa Política Monetaria (daily, % annualised).
+* ``IMACEC`` — Índice Mensual de Actividad Económica (monthly).
+* ``IMACEC_MIN`` — IMACEC sector minero (monthly).
+* ``IPC_BCH`` — IPC as published by BCCh (monthly).
+* ``PIB`` — Producto Interno Bruto, real terms (quarterly).
+"""
+
+IndicatorName = Literal[
+    "UF",
+    "UTM",
+    "USD",
+    "EUR",
+    "IPC",
+    "TMC",
+    "TPM",
+    "IMACEC",
+    "IMACEC_MIN",
+    "IPC_BCH",
+    "PIB",
+]
+"""Union of every indicator name accepted by :class:`IndicadoresResource`.
+
+Equivalent to ``SbifIndicatorName | BCentralIndicatorName``; spelled
+out as a flat ``Literal`` to keep mypy reveal-type output ergonomic.
+"""
 
 
 def _clean_params(raw: dict[str, Any]) -> dict[str, Any] | None:

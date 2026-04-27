@@ -105,6 +105,78 @@ class EntitiesResource(BaseResource):
         )
         return self._extract_items(body)
 
+    def diff(
+        self,
+        entity_id: str,
+        *,
+        from_: str,
+        to: str | None = None,
+    ) -> dict[str, Any]:
+        """Return SCD2 changes between two ISO dates.
+
+        Issues ``GET /entities/{entity_id}/diff?from=…&to=…``. The
+        ``from_`` Python kwarg maps to the wire param ``from`` (the
+        Python keyword forced the trailing-underscore alias).
+
+        Args:
+            entity_id: Server-assigned entity id.
+            from_: ``YYYY-MM-DD`` lower bound (required).
+            to: Optional ``YYYY-MM-DD`` upper bound. When ``None`` the
+                server defaults to "now".
+
+        Returns:
+            ``{"entity_id": str, "entity_rut": str, "from": str,
+            "to": str, "changes": [{"timestamp": str, "field": str,
+            "old_value": Any, "new_value": Any, "source": str}, ...],
+            "total": int}``.
+        """
+        params: dict[str, Any] = {"from": from_}
+        if to is not None:
+            params["to"] = to
+        return self._client._request(
+            "GET",
+            f"{self._path_prefix}/{quote(entity_id, safe='')}/diff",
+            params=params,
+        )
+
+    def bancos_fichas(
+        self,
+        rut: str,
+        *,
+        year: int | None = None,
+        month: int | None = None,
+    ) -> builtins.list[dict[str, Any]]:
+        """List bank "fichas" (regulatory snapshots) for a bank RUT.
+
+        Issues ``GET /bancos/{rut}/fichas`` with optional ``year`` and
+        ``month`` filters. Returned envelope is normalised via
+        :func:`_extract_items` so both ``{"data": [...]}`` and
+        ``{"items": [...]}`` shapes are accepted.
+        """
+        params: dict[str, Any] = {}
+        if year is not None:
+            params["year"] = year
+        if month is not None:
+            params["month"] = month
+        body = self._client._request(
+            "GET",
+            f"/bancos/{quote(rut, safe='')}/fichas",
+            params=params or None,
+        )
+        return self._extract_items(body)
+
+    def bancos_fichas_latest_per_section(self, rut: str) -> dict[str, Any]:
+        """Return the most recent ficha per section for a bank.
+
+        Issues ``GET /bancos/{rut}/fichas/latest-per-section``. The
+        endpoint returns a single aggregate object keyed by section
+        name (not a list envelope), so the body is returned verbatim.
+        """
+        return self._client._request(
+            "GET",
+            f"/bancos/{quote(rut, safe='')}/fichas/latest-per-section",
+        )
+
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Iterate through every entity, transparently paginating.
 
@@ -173,6 +245,50 @@ class AsyncEntitiesResource(AsyncBaseResource):
             "GET", f"{self._path_prefix}/{quote(id_, safe='')}/regulations"
         )
         return self._extract_items(body)
+
+    async def diff(
+        self,
+        entity_id: str,
+        *,
+        from_: str,
+        to: str | None = None,
+    ) -> dict[str, Any]:
+        """Async variant of :meth:`EntitiesResource.diff`."""
+        params: dict[str, Any] = {"from": from_}
+        if to is not None:
+            params["to"] = to
+        return await self._client._request(
+            "GET",
+            f"{self._path_prefix}/{quote(entity_id, safe='')}/diff",
+            params=params,
+        )
+
+    async def bancos_fichas(
+        self,
+        rut: str,
+        *,
+        year: int | None = None,
+        month: int | None = None,
+    ) -> builtins.list[dict[str, Any]]:
+        """Async variant of :meth:`EntitiesResource.bancos_fichas`."""
+        params: dict[str, Any] = {}
+        if year is not None:
+            params["year"] = year
+        if month is not None:
+            params["month"] = month
+        body = await self._client._request(
+            "GET",
+            f"/bancos/{quote(rut, safe='')}/fichas",
+            params=params or None,
+        )
+        return self._extract_items(body)
+
+    async def bancos_fichas_latest_per_section(self, rut: str) -> dict[str, Any]:
+        """Async variant of :meth:`EntitiesResource.bancos_fichas_latest_per_section`."""
+        return await self._client._request(
+            "GET",
+            f"/bancos/{quote(rut, safe='')}/fichas/latest-per-section",
+        )
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async iterator over every entity; mirrors :meth:`EntitiesResource.iter_all`.

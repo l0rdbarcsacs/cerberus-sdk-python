@@ -402,3 +402,140 @@ class TestAsyncSanctionsResource:
             out.append(item)
         assert out == [{"id": "z"}]
         assert route.calls.last.request.url.query == b""
+
+
+# ---------------------------------------------------------------------------
+# cross_reference — fuzzy multi-list lookup (P5.5)
+# ---------------------------------------------------------------------------
+
+
+class TestSanctionsCrossReferenceSync:
+    def test_cross_reference_requires_rut_or_name(self, sync_client: CerberusClient) -> None:
+        resource = SanctionsResource(sync_client)
+        with pytest.raises(ValueError, match="at least one of rut or name"):
+            resource.cross_reference()
+
+    def test_cross_reference_with_rut_only(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        body = {
+            "query": {"rut": "76123456-7"},
+            "matches": [
+                {
+                    "source": "OFAC",
+                    "name": "Acme Holdings",
+                    "type": "entity",
+                    "programs": ["SDN"],
+                    "score": 0.95,
+                }
+            ],
+            "total": 1,
+            "threshold": 0.92,
+        }
+        route = respx_mock.get("/sanctions/cross-reference").mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        resource = SanctionsResource(sync_client)
+        out = resource.cross_reference(rut="76123456-7")
+        assert out == body
+        assert route.called
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params["rut"] == "76123456-7"
+        assert params["threshold"] == "0.92"
+        assert params["limit"] == "50"
+        assert "name" not in params
+
+    def test_cross_reference_with_name_only(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/cross-reference").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "query": {"name": "Juan Perez"},
+                    "matches": [],
+                    "total": 0,
+                    "threshold": 0.92,
+                },
+            )
+        )
+        resource = SanctionsResource(sync_client)
+        resource.cross_reference(name="Juan Perez")
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params["name"] == "Juan Perez"
+        assert "rut" not in params
+
+    def test_cross_reference_with_both_rut_and_name(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/cross-reference").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "query": {"rut": "76123456-7", "name": "Acme"},
+                    "matches": [],
+                    "total": 0,
+                    "threshold": 0.85,
+                },
+            )
+        )
+        resource = SanctionsResource(sync_client)
+        resource.cross_reference(rut="76123456-7", name="Acme", threshold=0.85, limit=10)
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params["rut"] == "76123456-7"
+        assert params["name"] == "Acme"
+        assert params["threshold"] == "0.85"
+        assert params["limit"] == "10"
+
+    def test_cross_reference_propagates_404(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/sanctions/cross-reference").mock(
+            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
+        )
+        resource = SanctionsResource(sync_client)
+        with pytest.raises(CerberusAPIError) as exc:
+            resource.cross_reference(rut="76123456-7")
+        assert exc.value.status == 404
+
+
+class TestSanctionsCrossReferenceAsync:
+    async def test_cross_reference_requires_rut_or_name(
+        self, async_client: AsyncCerberusClient
+    ) -> None:
+        resource = AsyncSanctionsResource(async_client)
+        with pytest.raises(ValueError, match="at least one of rut or name"):
+            await resource.cross_reference()
+
+    async def test_cross_reference_with_rut(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        body = {
+            "query": {"rut": "76123456-7"},
+            "matches": [],
+            "total": 0,
+            "threshold": 0.92,
+        }
+        route = respx_mock.get("/sanctions/cross-reference").mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        resource = AsyncSanctionsResource(async_client)
+        out = await resource.cross_reference(rut="76123456-7")
+        assert out == body
+        assert route.called
+
+    async def test_cross_reference_with_name_and_overrides(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/cross-reference").mock(
+            return_value=httpx.Response(
+                200,
+                json={"query": {}, "matches": [], "total": 0, "threshold": 0.7},
+            )
+        )
+        resource = AsyncSanctionsResource(async_client)
+        await resource.cross_reference(name="Jane Doe", threshold=0.7, limit=5)
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params["name"] == "Jane Doe"
+        assert params["threshold"] == "0.7"
+        assert params["limit"] == "5"

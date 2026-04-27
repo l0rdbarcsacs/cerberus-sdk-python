@@ -30,6 +30,12 @@ import httpx
 
 from cerberus_compliance.auth import ApiKeyAuth, resolve_api_key
 from cerberus_compliance.errors import CerberusAPIError
+
+# v0.5.0 — P5.4.2 commercial extensions
+from cerberus_compliance.resources.admin_api_keys import (
+    AdminApiKeysResource,
+    AsyncAdminApiKeysResource,
+)
 from cerberus_compliance.resources.art12 import Art12Resource, AsyncArt12Resource
 from cerberus_compliance.resources.art20 import Art20Resource, AsyncArt20Resource
 from cerberus_compliance.resources.comunicaciones import (
@@ -44,7 +50,9 @@ from cerberus_compliance.resources.entities import (
     AsyncEntitiesResource,
     EntitiesResource,
 )
+from cerberus_compliance.resources.equity import AsyncEquityResource, EquityResource
 from cerberus_compliance.resources.esg import AsyncESGResource, ESGResource
+from cerberus_compliance.resources.exports import AsyncExportsResource, ExportsResource
 from cerberus_compliance.resources.indicadores import (
     AsyncIndicadoresResource,
     IndicadoresResource,
@@ -86,8 +94,13 @@ from cerberus_compliance.resources.sanctions import (
     AsyncSanctionsResource,
     SanctionsResource,
 )
+from cerberus_compliance.resources.sasb_topics import (
+    AsyncSasbTopicsResource,
+    SasbTopicsResource,
+)
 from cerberus_compliance.resources.search import AsyncSearchClient, SearchClient
 from cerberus_compliance.resources.tdc import AsyncTDCResource, TDCResource
+from cerberus_compliance.resources.webhooks import AsyncWebhooksResource, WebhooksResource
 from cerberus_compliance.retry import RetryConfig, backoff_seconds, should_retry
 
 __all__ = [
@@ -252,6 +265,12 @@ class CerberusClient:
         self.esg = ESGResource(self)
         self.normativa_historic = NormativaHistoricResource(self)
         self.search = SearchClient(self)
+        # v0.5.0 — P5.4.2 commercial extensions
+        self.admin_api_keys = AdminApiKeysResource(self)
+        self.sasb_topics = SasbTopicsResource(self)
+        self.exports = ExportsResource(self)
+        self.webhooks = WebhooksResource(self)
+        self.equity = EquityResource(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
@@ -439,6 +458,12 @@ class AsyncCerberusClient:
         self.esg = AsyncESGResource(self)
         self.normativa_historic = AsyncNormativaHistoricResource(self)
         self.search = AsyncSearchClient(self)
+        # v0.5.0 — P5.4.2 commercial extensions
+        self.admin_api_keys = AsyncAdminApiKeysResource(self)
+        self.sasb_topics = AsyncSasbTopicsResource(self)
+        self.exports = AsyncExportsResource(self)
+        self.webhooks = AsyncWebhooksResource(self)
+        self.equity = AsyncEquityResource(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 

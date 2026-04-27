@@ -492,3 +492,251 @@ class TestAsyncEntitiesResource:
         resource = AsyncEntitiesResource(async_client)
         result = await resource.ownership("ent_1")
         assert result["entity_id"] == "ent_1"
+
+
+# ---------------------------------------------------------------------------
+# diff — SCD2 traversal between two ISO dates (P5.5)
+# ---------------------------------------------------------------------------
+
+
+class TestEntitiesDiffSync:
+    def test_diff_with_from_only_maps_python_kwarg_to_wire_from(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/entities/ent_1/diff").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "entity_id": "ent_1",
+                    "entity_rut": "76123456-7",
+                    "from": "2026-01-01",
+                    "to": "2026-04-26",
+                    "changes": [],
+                    "total": 0,
+                },
+            )
+        )
+        resource = EntitiesResource(sync_client)
+        out = resource.diff("ent_1", from_="2026-01-01")
+        assert out["entity_id"] == "ent_1"
+        assert route.called
+        params = dict(route.calls.last.request.url.params.multi_items())
+        # Python keyword ``from_`` must hit the wire as ``from`` (no
+        # trailing underscore) and ``to`` must be omitted.
+        assert params == {"from": "2026-01-01"}
+        assert "from_" not in params
+
+    def test_diff_with_from_and_to(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/entities/ent_1/diff",
+            params={"from": "2026-01-01", "to": "2026-04-26"},
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "entity_id": "ent_1",
+                    "entity_rut": "76123456-7",
+                    "from": "2026-01-01",
+                    "to": "2026-04-26",
+                    "changes": [
+                        {
+                            "timestamp": "2026-02-15T10:00:00Z",
+                            "field": "razon_social",
+                            "old_value": "Acme SpA",
+                            "new_value": "Acme Holdings SpA",
+                            "source": "cmf",
+                        }
+                    ],
+                    "total": 1,
+                },
+            )
+        )
+        resource = EntitiesResource(sync_client)
+        out = resource.diff("ent_1", from_="2026-01-01", to="2026-04-26")
+        assert out["total"] == 1
+        assert route.called
+
+    def test_diff_percent_encodes_entity_id(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/entities/..%2Fadmin/diff").mock(
+            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
+        )
+        resource = EntitiesResource(sync_client)
+        from cerberus_compliance.errors import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            resource.diff("../admin", from_="2026-01-01")
+        assert route.called
+
+    def test_diff_propagates_404(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/entities/missing/diff").mock(
+            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
+        )
+        resource = EntitiesResource(sync_client)
+        from cerberus_compliance.errors import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            resource.diff("missing", from_="2026-01-01")
+
+
+class TestEntitiesDiffAsync:
+    async def test_diff_with_from_only(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/entities/ent_1/diff").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "entity_id": "ent_1",
+                    "entity_rut": "76123456-7",
+                    "from": "2026-01-01",
+                    "to": "2026-04-26",
+                    "changes": [],
+                    "total": 0,
+                },
+            )
+        )
+        resource = AsyncEntitiesResource(async_client)
+        out = await resource.diff("ent_1", from_="2026-01-01")
+        assert out["entity_id"] == "ent_1"
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params == {"from": "2026-01-01"}
+
+    async def test_diff_with_from_and_to(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/entities/ent_1/diff",
+            params={"from": "2026-01-01", "to": "2026-04-26"},
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "entity_id": "ent_1",
+                    "entity_rut": "76123456-7",
+                    "from": "2026-01-01",
+                    "to": "2026-04-26",
+                    "changes": [],
+                    "total": 0,
+                },
+            )
+        )
+        resource = AsyncEntitiesResource(async_client)
+        await resource.diff("ent_1", from_="2026-01-01", to="2026-04-26")
+        assert route.called
+
+
+# ---------------------------------------------------------------------------
+# bancos_fichas + bancos_fichas_latest_per_section (P5.5)
+# ---------------------------------------------------------------------------
+
+
+class TestEntitiesBancosFichasSync:
+    def test_bancos_fichas_no_filters(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/bancos/97004000-5/fichas").mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": [{"id": "f1"}, {"id": "f2"}]},
+            )
+        )
+        resource = EntitiesResource(sync_client)
+        out = resource.bancos_fichas("97004000-5")
+        assert out == [{"id": "f1"}, {"id": "f2"}]
+        assert route.called
+        assert route.calls.last.request.url.query == b""
+
+    def test_bancos_fichas_with_year_and_month(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/bancos/97004000-5/fichas",
+            params={"year": "2026", "month": "3"},
+        ).mock(return_value=httpx.Response(200, json={"items": [{"id": "f3"}]}))
+        resource = EntitiesResource(sync_client)
+        out = resource.bancos_fichas("97004000-5", year=2026, month=3)
+        assert out == [{"id": "f3"}]
+        assert route.called
+
+    def test_bancos_fichas_drops_none_filters(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/bancos/97004000-5/fichas").mock(
+            return_value=httpx.Response(200, json={"data": []})
+        )
+        resource = EntitiesResource(sync_client)
+        resource.bancos_fichas("97004000-5", year=None, month=None)
+        assert route.calls.last.request.url.query == b""
+
+    def test_bancos_fichas_latest_per_section_returns_aggregate(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        body = {
+            "rut": "97004000-5",
+            "sections": {
+                "balance": {"id": "b1", "as_of": "2026-03-31"},
+                "estado_resultados": {"id": "e1", "as_of": "2026-03-31"},
+            },
+        }
+        route = respx_mock.get("/bancos/97004000-5/fichas/latest-per-section").mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        resource = EntitiesResource(sync_client)
+        out = resource.bancos_fichas_latest_per_section("97004000-5")
+        assert out == body
+        assert route.called
+
+    def test_bancos_fichas_latest_per_section_percent_encodes_rut(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/bancos/..%2Fadmin/fichas/latest-per-section").mock(
+            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
+        )
+        resource = EntitiesResource(sync_client)
+        from cerberus_compliance.errors import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            resource.bancos_fichas_latest_per_section("../admin")
+        assert route.called
+
+
+class TestEntitiesBancosFichasAsync:
+    async def test_bancos_fichas_no_filters(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/bancos/97004000-5/fichas").mock(
+            return_value=httpx.Response(200, json={"data": [{"id": "f1"}]})
+        )
+        resource = AsyncEntitiesResource(async_client)
+        out = await resource.bancos_fichas("97004000-5")
+        assert out == [{"id": "f1"}]
+        assert route.calls.last.request.url.query == b""
+
+    async def test_bancos_fichas_with_filters(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/bancos/97004000-5/fichas",
+            params={"year": "2026", "month": "3"},
+        ).mock(return_value=httpx.Response(200, json={"data": [{"id": "f9"}]}))
+        resource = AsyncEntitiesResource(async_client)
+        out = await resource.bancos_fichas("97004000-5", year=2026, month=3)
+        assert out == [{"id": "f9"}]
+        assert route.called
+
+    async def test_bancos_fichas_latest_per_section(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        body = {"rut": "97004000-5", "sections": {}}
+        respx_mock.get("/bancos/97004000-5/fichas/latest-per-section").mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        resource = AsyncEntitiesResource(async_client)
+        out = await resource.bancos_fichas_latest_per_section("97004000-5")
+        assert out == body

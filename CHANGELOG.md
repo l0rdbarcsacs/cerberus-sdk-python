@@ -5,6 +5,107 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0] — 2026-04-27
+
+P5.4.2 commercial extensions — five new resources, four extended
+resources, an offline webhook signature verifier, and the BCentral
+indicator series wired through the existing `indicadores` accessor.
+
+### Added — five new resources
+
+- **`client.admin_api_keys`** — typed accessor for
+  `GET /v1/admin/api-keys/me`. Returns the calling key's metadata
+  (prefix, env, tier, scopes, expiry, daily + monthly quota) without
+  ever leaking the secret. Method: `me()`. Async mirror:
+  `AsyncAdminApiKeysResource`.
+
+- **`client.sasb_topics`** — `GET /v1/sasb-topics`. Wraps the SASB
+  Standards 2018 reference taxonomy (~395 topics across 40 SICS
+  industries). Methods: `list(industry=, limit=, offset=)`,
+  `iter_all(industry=)` (offset-paginated). Async mirror.
+
+- **`client.exports`** — bulk export lifecycle for enterprise tier.
+  Methods: `create(resource, *, format='csv'|'parquet', filters=,
+  fields=)`, `get(export_id)`, `delete(export_id)`, `list(limit=)`,
+  `wait(export_id, *, poll_interval=, timeout=)`. CSV + Parquet,
+  presigned MinIO URLs with 1h TTL. Async mirror.
+
+- **`client.webhooks`** — full CRUD lifecycle plus offline signature
+  verification. Methods: `create(callback_url, event_types,
+  description=)`, `list()`, `get(id)`, `update(id, ...)`, `delete(id)`,
+  `deliveries(id, limit=)`, `test(id)`. The plaintext secret is only
+  returned on `create()` — subsequent reads omit it. The
+  `WebhooksResource.verify_signature(payload, signature_header,
+  secret)` static method (also re-exported as
+  `cerberus_compliance.verify_webhook_signature`) implements the
+  Stripe-compatible `t=,v1=hmac-sha256` scheme with replay protection
+  (defaults to a 5-minute max signature age). Async mirror.
+
+- **`client.equity`** — `GET /v1/equity/{ticker}/prices`. Daily OHLCV
+  for the IPSA-25 sourced from Yahoo Finance, with `entity_id`
+  resolution against `cmf_entities`. Method: `prices(ticker, *,
+  from_=, to=)`. Async mirror.
+
+### Added — extensions to existing resources
+
+- **`client.persons.list(*, pep, cargo, entity_kind, cursor, limit)`**
+  + `iter_all()` — paginated list of natural persons with their active
+  cargos. The `pep=True` filter narrows to active cargos at bancos and
+  IPSA-25 emisores (Cerberus's PEP-lite definition). New public Literal
+  alias: `PersonEntityKind`.
+
+- **`client.esg.rankings(*, indicator, year, top_n, direction='desc',
+  industry=)`** — top-N emisores ranked by an NCG-461 ESG indicator for
+  a fiscal year. New public Literal alias: `ESGRankingDirection`.
+
+- **`client.entities.diff(entity_id, *, from_, to=)`** — SCD2 traversal
+  of `cmf_entity_history` plus director appointments / removals from
+  `cmf_persona_cargos` between two dates. Returns a chronological list
+  of `{timestamp, field, old_value, new_value, source}` changes.
+
+- **`client.entities.bancos_fichas(rut, year=, month=)`** and
+  **`client.entities.bancos_fichas_latest_per_section(rut)`** — wraps
+  the P5.4.1 endpoint that returns the most recent ficha per RAN
+  section, useful when individual sections are frozen in different
+  months (e.g. `adecuacion_capital` lags `composicion_directorio`).
+
+- **`client.sanctions.cross_reference(*, rut=, name=, threshold=0.92,
+  limit=50)`** — match a person or entity against OFAC SDN, UN
+  Consolidated, and the internal CMF lists. Uses Jaro-Winkler matching
+  on normalized names. Raises `ValueError` if neither `rut` nor `name`
+  is supplied.
+
+- **`client.indicadores`** — the existing `get(name, ...)` and
+  `history(name, ...)` accessors now serve five additional series
+  ingested from the Banco Central de Chile (`source='bcentral_api'`):
+  TPM, IMACEC, IMACEC_MIN, IPC_BCH, PIB. New public Literal aliases:
+  `SbifIndicatorName`, `BCentralIndicatorName`, `IndicatorName` (the
+  union, unchanged in name from v0.4.0).
+
+### Added — public re-exports
+
+`__init__.py` now exports `verify_webhook_signature` as a
+top-level convenience along with the new resource classes and the
+three Literal type aliases (`PersonEntityKind`, `ESGRankingDirection`,
+`SbifIndicatorName`, `BCentralIndicatorName`, `IndicatorName`).
+
+### Notes for upgraders
+
+- The previously-deprecated `PersonsResource.list()` and
+  `iter_all()` shims that raised `NotImplementedError` are gone.
+  Callers writing `client.persons.list(pep=True)` now hit the live
+  endpoint instead of the shim — this is a fix, not a break, but
+  worth flagging since the runtime behaviour has changed.
+- `client.exports.wait()` raises `CerberusAPIError` (not a subclass)
+  on `failed`, `expired`, or timeout. The original problem-detail
+  body is forwarded into the exception's `.problem` attribute so
+  callers can inspect `failure_reason` / `rows_exported`.
+
+### Tests
+
+698 passing (was 547 in v0.4.0 audit). 18 skipped (live-staging tests
+gated on `CERBERUS_STAGING_KEY`). Mypy strict-clean, ruff clean.
+
 ## [v0.4.0] — 2026-04-26
 
 Nine new resource modules covering the full CMF document corpus, plus

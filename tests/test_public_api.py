@@ -10,6 +10,24 @@ from __future__ import annotations
 import cerberus_compliance
 
 EXPECTED_ALL = {
+    # v0.5.0 — P5.4.2 commercial extensions
+    "AdminApiKeysResource",
+    "AsyncAdminApiKeysResource",
+    "AsyncEquityResource",
+    "AsyncExportsResource",
+    "AsyncSasbTopicsResource",
+    "AsyncWebhooksResource",
+    "BCentralIndicatorName",
+    "ESGRankingDirection",
+    "EquityResource",
+    "ExportsResource",
+    "IndicatorName",
+    "PersonEntityKind",
+    "SasbTopicsResource",
+    "SbifIndicatorName",
+    "WebhooksResource",
+    "verify_webhook_signature",
+    # v0.4.0 — P5.3 corpus + universal search
     "Art12Resource",
     "Art20Resource",
     "AsyncArt12Resource",
@@ -64,8 +82,8 @@ EXPECTED_ALL = {
 }
 
 
-def test_version_is_semver_0_4_0() -> None:
-    assert cerberus_compliance.__version__ == "0.4.0"
+def test_version_is_v0_5_0() -> None:
+    assert cerberus_compliance.__version__ == "0.5.0"
 
 
 def test_all_matches_expected_surface() -> None:

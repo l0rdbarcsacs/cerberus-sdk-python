@@ -95,6 +95,48 @@ class SanctionsResource(BaseResource):
         params = _normalise_filters(filters)
         return self._iter_all(params=params or None)
 
+    def cross_reference(
+        self,
+        *,
+        rut: str | None = None,
+        name: str | None = None,
+        threshold: float = 0.92,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Match a person or entity against every supported sanctions list.
+
+        Issues ``GET /sanctions/cross-reference``. The server checks
+        OFAC SDN, the UN Consolidated list, the EU/UK lists, and CMF
+        internal sanctions, returning fuzzy matches above
+        ``threshold``.
+
+        At least one of ``rut`` or ``name`` must be supplied; passing
+        both narrows the candidate set on the server side.
+
+        Args:
+            rut: Optional Chilean RUT to match against.
+            name: Optional legal name to match against.
+            threshold: Minimum match score (0.0-1.0). Defaults to
+                ``0.92`` to match the prod API default.
+            limit: Maximum matches to return. Defaults to ``50``.
+
+        Returns:
+            ``{"query": {...}, "matches": [{"source": str, "name": str,
+            "type": str, "programs": [str], "score": float, ...}],
+            "total": int, "threshold": float}``.
+
+        Raises:
+            ValueError: When neither ``rut`` nor ``name`` is supplied.
+        """
+        if rut is None and name is None:
+            raise ValueError("cross_reference requires at least one of rut or name")
+        params: dict[str, Any] = {"threshold": threshold, "limit": limit}
+        if rut is not None:
+            params["rut"] = rut
+        if name is not None:
+            params["name"] = name
+        return self._client._request("GET", f"{self._path_prefix}/cross-reference", params=params)
+
 
 class AsyncSanctionsResource(AsyncBaseResource):
     """Asynchronous accessor for ``/sanctions``.
@@ -129,3 +171,23 @@ class AsyncSanctionsResource(AsyncBaseResource):
         """
         params = _normalise_filters(filters)
         return self._iter_all(params=params or None)
+
+    async def cross_reference(
+        self,
+        *,
+        rut: str | None = None,
+        name: str | None = None,
+        threshold: float = 0.92,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Async variant of :meth:`SanctionsResource.cross_reference`."""
+        if rut is None and name is None:
+            raise ValueError("cross_reference requires at least one of rut or name")
+        params: dict[str, Any] = {"threshold": threshold, "limit": limit}
+        if rut is not None:
+            params["rut"] = rut
+        if name is not None:
+            params["name"] = name
+        return await self._client._request(
+            "GET", f"{self._path_prefix}/cross-reference", params=params
+        )

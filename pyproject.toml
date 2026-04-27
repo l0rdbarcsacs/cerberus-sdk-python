@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cerberus-compliance"
-version = "0.4.0"
+version = "0.5.0"
 description = "Official Python SDK for the Cerberus Compliance API (Chile RegTech)"
 readme = "README.md"
 license = { text = "MIT" }

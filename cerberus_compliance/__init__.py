@@ -1,6 +1,6 @@
 """Official Python SDK for the Cerberus Compliance API (Chile RegTech)."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 from cerberus_compliance.errors import (
@@ -11,6 +11,12 @@ from cerberus_compliance.errors import (
     RateLimitError,
     ServerError,
     ValidationError,
+)
+
+# v0.5.0 — P5.4.2 commercial extensions ----------------------------------
+from cerberus_compliance.resources.admin_api_keys import (
+    AdminApiKeysResource,
+    AsyncAdminApiKeysResource,
 )
 from cerberus_compliance.resources.art12 import Art12Resource, AsyncArt12Resource
 from cerberus_compliance.resources.art20 import Art20Resource, AsyncArt20Resource
@@ -26,10 +32,19 @@ from cerberus_compliance.resources.entities import (
     AsyncEntitiesResource,
     EntitiesResource,
 )
-from cerberus_compliance.resources.esg import AsyncESGResource, ESGResource
+from cerberus_compliance.resources.equity import AsyncEquityResource, EquityResource
+from cerberus_compliance.resources.esg import (
+    AsyncESGResource,
+    ESGRankingDirection,
+    ESGResource,
+)
+from cerberus_compliance.resources.exports import AsyncExportsResource, ExportsResource
 from cerberus_compliance.resources.indicadores import (
     AsyncIndicadoresResource,
+    BCentralIndicatorName,
     IndicadoresResource,
+    IndicatorName,
+    SbifIndicatorName,
 )
 from cerberus_compliance.resources.kyb import (
     AsyncKYBResource,
@@ -51,6 +66,7 @@ from cerberus_compliance.resources.normativa_historic import (
 from cerberus_compliance.resources.opas import AsyncOPAsResource, OPAsResource
 from cerberus_compliance.resources.persons import (
     AsyncPersonsResource,
+    PersonEntityKind,
     PersonsResource,
 )
 from cerberus_compliance.resources.regulations import (
@@ -69,6 +85,10 @@ from cerberus_compliance.resources.sanctions import (
     AsyncSanctionsResource,
     SanctionsResource,
 )
+from cerberus_compliance.resources.sasb_topics import (
+    AsyncSasbTopicsResource,
+    SasbTopicsResource,
+)
 from cerberus_compliance.resources.search import (
     AsyncSearchClient,
     SearchClient,
@@ -77,10 +97,20 @@ from cerberus_compliance.resources.search import (
     SearchResponse,
 )
 from cerberus_compliance.resources.tdc import AsyncTDCResource, TDCResource
+from cerberus_compliance.resources.webhooks import (
+    AsyncWebhooksResource,
+    WebhooksResource,
+)
+
+#: Convenience alias — verify a webhook signature without instantiating a
+#: client.  The same function lives at ``WebhooksResource.verify_signature``.
+verify_webhook_signature = WebhooksResource.verify_signature
 
 __all__ = [
+    "AdminApiKeysResource",
     "Art12Resource",
     "Art20Resource",
+    "AsyncAdminApiKeysResource",
     "AsyncArt12Resource",
     "AsyncArt20Resource",
     "AsyncCerberusClient",
@@ -88,6 +118,8 @@ __all__ = [
     "AsyncDictamenesResource",
     "AsyncESGResource",
     "AsyncEntitiesResource",
+    "AsyncEquityResource",
+    "AsyncExportsResource",
     "AsyncIndicadoresResource",
     "AsyncKYBResource",
     "AsyncNormativaConsultaResource",
@@ -99,16 +131,23 @@ __all__ = [
     "AsyncRegulationsResource",
     "AsyncResolucionesResource",
     "AsyncSanctionsResource",
+    "AsyncSasbTopicsResource",
     "AsyncSearchClient",
     "AsyncTDCResource",
+    "AsyncWebhooksResource",
     "AuthError",
+    "BCentralIndicatorName",
     "CerberusAPIError",
     "CerberusClient",
     "ComunicacionesResource",
     "DictamenesResource",
+    "ESGRankingDirection",
     "ESGResource",
     "EntitiesResource",
+    "EquityResource",
+    "ExportsResource",
     "IndicadoresResource",
+    "IndicatorName",
     "KYBResource",
     "NormativaConsultaEstado",
     "NormativaConsultaResource",
@@ -116,6 +155,7 @@ __all__ = [
     "NormativaResource",
     "NotFoundError",
     "OPAsResource",
+    "PersonEntityKind",
     "PersonsResource",
     "QuotaError",
     "RPSFResource",
@@ -123,6 +163,8 @@ __all__ = [
     "RegulationsResource",
     "ResolucionesResource",
     "SanctionsResource",
+    "SasbTopicsResource",
+    "SbifIndicatorName",
     "SearchClient",
     "SearchFilters",
     "SearchHit",
@@ -130,4 +172,6 @@ __all__ = [
     "ServerError",
     "TDCResource",
     "ValidationError",
+    "WebhooksResource",
+    "verify_webhook_signature",
 ]
