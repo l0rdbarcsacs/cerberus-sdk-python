@@ -1,6 +1,6 @@
 """Official Python SDK for the Cerberus Compliance API (Chile RegTech)."""
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 from cerberus_compliance.errors import (

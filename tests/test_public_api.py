@@ -82,8 +82,8 @@ EXPECTED_ALL = {
 }
 
 
-def test_version_is_v0_5_0() -> None:
-    assert cerberus_compliance.__version__ == "0.5.0"
+def test_version_is_v0_5_1() -> None:
+    assert cerberus_compliance.__version__ == "0.5.1"
 
 
 def test_all_matches_expected_surface() -> None:
