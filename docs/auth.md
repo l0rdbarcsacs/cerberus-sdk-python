@@ -70,11 +70,11 @@ from cerberus_compliance import CerberusClient
 
 client = CerberusClient(
     api_key="ck_test_...",
-    base_url="https://staging-api.cerberus.cl/v1",
+    base_url="https://staging-compliance.cerberus.cl/v1",
 )
 ```
 
-The default is `https://api.cerberus.cl/v1`. A trailing slash on `base_url` is
+The default is `https://compliance.cerberus.cl/v1`. A trailing slash on `base_url` is
 stripped automatically — both `https://example.com/v1` and `https://example.com/v1/`
 work identically. During unit tests you can point the SDK at a `respx` or
 `http.server` mock running on `http://127.0.0.1:<port>`.
@@ -91,7 +91,7 @@ from cerberus_compliance import CerberusClient
 
 transport = httpx.HTTPTransport(proxy="http://corp-proxy:3128", retries=0)
 my_http = httpx.Client(
-    base_url="https://api.cerberus.cl/v1",
+    base_url="https://compliance.cerberus.cl/v1",
     timeout=30.0,
     transport=transport,
     verify="/etc/ssl/corp-ca-bundle.pem",

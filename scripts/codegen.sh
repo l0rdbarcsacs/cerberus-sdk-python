@@ -4,7 +4,7 @@
 # the SDK is out of sync with the backend and must be regenerated + re-committed.
 set -euo pipefail
 
-SPEC_URL="${CERBERUS_OPENAPI_URL:-https://staging-api.cerberus.cl/v1/openapi.json}"
+SPEC_URL="${CERBERUS_OPENAPI_URL:-https://staging-compliance.cerberus.cl/v1/openapi.json}"
 OUT_DIR="cerberus_compliance/_generated"
 TMP_SPEC="$(mktemp -t cerberus-openapi.XXXXXX.json)"
 trap 'rm -f "$TMP_SPEC"' EXIT

@@ -5,6 +5,20 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.1] — 2026-04-27
+
+### Fixed
+
+- **Documentation, examples and codegen URLs** corrected. `docs/auth.md`,
+  `examples/notebooks/01-kyb-quickstart.ipynb`, and `scripts/codegen.sh`
+  still referenced the obsolete `api.cerberus.cl` /
+  `staging-api.cerberus.cl` hosts in code samples and the OpenAPI fetch
+  URL. The runtime client (`cerberus_compliance.client`) was already
+  correct since v0.3.0 — no behavioural change for consumers using the
+  default `base_url`. Anyone who copy-pasted the sample `base_url=` in
+  `docs/auth.md` would have hit an unresolvable host; this release
+  removes those broken references.
+
 ## [v0.5.0] — 2026-04-27
 
 P5.4.2 commercial extensions — five new resources, four extended
