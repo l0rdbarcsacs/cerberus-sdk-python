@@ -5,6 +5,65 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.0] — 2026-04-28
+
+API contract realignment — three resources had drifted away from the
+canonical schemas in `compliance.cerberus.cl/v1`. This release
+rewrites their wire format to match the server (sources verified in
+`backend/schemas/cmf_public.py`, `backend/schemas/v1_webhooks.py`, and
+`backend/api/v1_public/indicadores.py`).
+
+### Changed — breaking
+
+- **`cerberus_compliance.resources.search`** now models the live
+  `POST /v1/search` response.
+  - `SearchHit` fields are: `score`, `source_table`, `source_row_id`
+    (UUID), `tipo_documento`, `marco_regulatorio`,
+    `tipo_entidad_target`, `materias`, `entity_rut`, `publicacion_at`,
+    `payload`. The previous fields (`id`, `doc_type`, `title`,
+    `snippet`, `metadata`) never matched anything the server returned
+    and have been removed.
+  - `SearchResponse` renamed `total` → `total_searched` (matches the
+    server: it's the candidate-corpus size, not the trimmed hit count).
+  - `SearchFilters` replaced its old shape (`doc_types`, `from_date`,
+    `to_date`, `entity_rut`) with the canonical
+    `tipo_documento`, `marco_regulatorio`, `tipo_entidad_target`,
+    `materias`, `entity_rut`, `date_range`. Date windows are now
+    expressed via the new `SearchDateRange` model whose `from_` field
+    serialises to the wire field `from`.
+
+  Migration: replace
+  `SearchFilters(doc_types=[...], from_date="...")` with
+  `SearchFilters(tipo_documento=[...], date_range=SearchDateRange(from_="..."))`,
+  and read `hit.source_row_id` / `hit.source_table` / `hit.payload`
+  instead of `hit.id` / `hit.doc_type` / `hit.metadata`.
+
+- **`cerberus_compliance.resources.indicadores.history`** now issues
+  `GET /v1/indicadores/{name}?from=YYYY-MM-DD&to=YYYY-MM-DD` (the live
+  contract) instead of the legacy
+  `GET /v1/indicadores/{name}?periodo=YYYY/MM/YYYY/MM`. The response is
+  unwrapped from the new `items` array (was `values`). Public method
+  signature is unchanged — callers who only used `history(name, from_,
+  to)` need no code change, but anyone mocking the wire format must
+  update their fixtures.
+
+### Added
+
+- **`cerberus_compliance.resources.search.SearchDateRange`** — typed
+  date-window helper for the new `SearchFilters.date_range` field.
+  Aliases `from_` to the wire field `from`. Re-exported at the
+  package root.
+
+- **`cerberus_compliance.resources.webhooks.WebhookEventType`** — typed
+  `Literal` of every event the server emits (`hecho_esencial.new`,
+  `sancion.new`, `resolucion.new`, `tdc.new`, `dictamen.new`,
+  `comunicacion.new`, `opa.new`, `art12.new`, `art20.new`,
+  `entity.changed`, `ping`). Mirrored from
+  `backend/schemas/v1_webhooks.py`. `WebhooksResource.create()` and
+  `update()` now type their `event_types=` parameter against this
+  alias so unknown values are flagged at type-check time instead of
+  surfacing as a `422 ValidationError` at runtime.
+
 ## [v0.5.1] — 2026-04-27
 
 ### Fixed

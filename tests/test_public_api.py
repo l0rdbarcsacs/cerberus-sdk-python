@@ -10,6 +10,9 @@ from __future__ import annotations
 import cerberus_compliance
 
 EXPECTED_ALL = {
+    # v0.6.0 — API contract realignment (search, indicadores, webhooks)
+    "SearchDateRange",
+    "WebhookEventType",
     # v0.5.0 — P5.4.2 commercial extensions
     "AdminApiKeysResource",
     "AsyncAdminApiKeysResource",
@@ -82,8 +85,8 @@ EXPECTED_ALL = {
 }
 
 
-def test_version_is_v0_5_1() -> None:
-    assert cerberus_compliance.__version__ == "0.5.1"
+def test_version_is_v0_6_0() -> None:
+    assert cerberus_compliance.__version__ == "0.6.0"
 
 
 def test_all_matches_expected_surface() -> None:

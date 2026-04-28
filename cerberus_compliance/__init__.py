@@ -1,6 +1,6 @@
 """Official Python SDK for the Cerberus Compliance API (Chile RegTech)."""
 
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 
 from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 from cerberus_compliance.errors import (
@@ -92,6 +92,7 @@ from cerberus_compliance.resources.sasb_topics import (
 from cerberus_compliance.resources.search import (
     AsyncSearchClient,
     SearchClient,
+    SearchDateRange,
     SearchFilters,
     SearchHit,
     SearchResponse,
@@ -99,6 +100,7 @@ from cerberus_compliance.resources.search import (
 from cerberus_compliance.resources.tdc import AsyncTDCResource, TDCResource
 from cerberus_compliance.resources.webhooks import (
     AsyncWebhooksResource,
+    WebhookEventType,
     WebhooksResource,
 )
 
@@ -166,12 +168,14 @@ __all__ = [
     "SasbTopicsResource",
     "SbifIndicatorName",
     "SearchClient",
+    "SearchDateRange",
     "SearchFilters",
     "SearchHit",
     "SearchResponse",
     "ServerError",
     "TDCResource",
     "ValidationError",
+    "WebhookEventType",
     "WebhooksResource",
     "verify_webhook_signature",
 ]

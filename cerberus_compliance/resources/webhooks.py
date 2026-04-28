@@ -52,15 +52,41 @@ from cerberus_compliance.resources._base import (
 if TYPE_CHECKING:
     from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 
-__all__ = ["AsyncWebhooksResource", "WebhookStatus", "WebhooksResource"]
+__all__ = [
+    "AsyncWebhooksResource",
+    "WebhookEventType",
+    "WebhookStatus",
+    "WebhooksResource",
+]
 
 WebhookStatus = Literal["active", "disabled"]
+
+WebhookEventType = Literal[
+    "hecho_esencial.new",
+    "sancion.new",
+    "resolucion.new",
+    "tdc.new",
+    "dictamen.new",
+    "comunicacion.new",
+    "opa.new",
+    "art12.new",
+    "art20.new",
+    "entity.changed",
+    "ping",
+]
+"""Every event type the platform may emit on a delivery.
+
+Mirrors ``backend/schemas/v1_webhooks.py::WebhookEventType``. Passed
+through verbatim to ``POST /webhooks`` and ``PATCH /webhooks/{id}``;
+the server enforces the same allowlist server-side, so an unknown
+value will surface as a ``422 ValidationError`` from the SDK.
+"""
 
 
 def _build_create_body(
     *,
     callback_url: str,
-    event_types: builtins.list[str],
+    event_types: builtins.list[WebhookEventType],
     description: str | None,
 ) -> dict[str, Any]:
     """Build the JSON body for ``POST /webhooks``.
@@ -80,7 +106,7 @@ def _build_create_body(
 def _build_update_body(
     *,
     callback_url: str | None,
-    event_types: builtins.list[str] | None,
+    event_types: builtins.list[WebhookEventType] | None,
     status: WebhookStatus | None,
     description: str | None,
 ) -> dict[str, Any]:
@@ -141,7 +167,7 @@ class WebhooksResource(BaseResource):
         self,
         *,
         callback_url: str,
-        event_types: builtins.list[str],
+        event_types: builtins.list[WebhookEventType],
         description: str | None = None,
     ) -> dict[str, Any]:
         """Register a new webhook endpoint.
@@ -150,6 +176,14 @@ class WebhooksResource(BaseResource):
         key**, returned exactly once.  Persist it immediately; it cannot
         be retrieved later.  Subsequent ``GET`` / ``list`` responses
         only expose a redacted ``key_prefix`` style identifier.
+
+        Args:
+            callback_url: HTTPS URL the platform will ``POST`` deliveries to.
+            event_types: Subset of :data:`WebhookEventType` to subscribe.
+                The server validates each entry against the allowlist —
+                unknown values surface as
+                :class:`~cerberus_compliance.errors.ValidationError`.
+            description: Optional free-form label shown in the dashboard.
         """
         body = _build_create_body(
             callback_url=callback_url,
@@ -176,7 +210,7 @@ class WebhooksResource(BaseResource):
         webhook_id: str,
         *,
         callback_url: str | None = None,
-        event_types: builtins.list[str] | None = None,
+        event_types: builtins.list[WebhookEventType] | None = None,
         status: WebhookStatus | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:
@@ -257,7 +291,7 @@ class AsyncWebhooksResource(AsyncBaseResource):
         self,
         *,
         callback_url: str,
-        event_types: builtins.list[str],
+        event_types: builtins.list[WebhookEventType],
         description: str | None = None,
     ) -> dict[str, Any]:
         """Async variant of :meth:`WebhooksResource.create`."""
@@ -281,7 +315,7 @@ class AsyncWebhooksResource(AsyncBaseResource):
         webhook_id: str,
         *,
         callback_url: str | None = None,
-        event_types: builtins.list[str] | None = None,
+        event_types: builtins.list[WebhookEventType] | None = None,
         status: WebhookStatus | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:

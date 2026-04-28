@@ -115,35 +115,57 @@ def _clean_params(raw: dict[str, Any]) -> dict[str, Any] | None:
     return cleaned or None
 
 
-def _periodo_from_range(from_: str, to: str) -> str:
-    """Build the ``periodo=YYYY/MM/YYYY/MM`` param from ``YYYY-MM-DD`` inputs.
+def _validate_history_range(from_: str, to: str) -> tuple[str, str]:
+    """Validate the ``YYYY-MM-DD`` range inputs and return them verbatim.
 
-    The CMF Indicadores API v3 historical-range query uses a
-    ``year1/month1/year2/month2`` path-style token — we accept standard
-    ISO dates on the Python surface and transform at the boundary. The
-    transform is intentionally strict: we do not accept ``YYYY/MM/DD`` or
-    ``YYYY-MM`` inputs, to keep the public surface unambiguous.
+    The live API accepts ``?from=YYYY-MM-DD&to=YYYY-MM-DD`` query params
+    on ``/v1/indicadores/{name}``. We delegate calendar validation to
+    :meth:`datetime.date.fromisoformat` (cheap, stdlib, rejects
+    ``"2026-13-01"`` and ``"2026-02-30"`` correctly) and let the server
+    own the cross-field checks (``from <= to``, ≤ 365-day window).
+
+    Returns the inputs unchanged so callers can forward them directly
+    to ``params=``. Strings are kept as strings so the wire encoding is
+    identical to what the user passed.
 
     Raises :class:`ValueError` when either input is not a parseable
-    ``YYYY-MM-DD`` ISO date. We delegate the lexical + calendar check
-    to :meth:`datetime.date.fromisoformat` (cheap, stdlib, fewer corner
-    cases than char-by-char inspection — e.g. it correctly rejects
-    ``"2026-13-01"`` and ``"2026-02-30"``). The server still owns the
-    range check (``from_ <= to``); we forward a ``422 Validation``
-    instead of duplicating it.
+    ``YYYY-MM-DD`` ISO date.
     """
-    parsed: dict[str, _date] = {}
     for label, value in (("from_", from_), ("to", to)):
         if not isinstance(value, str):
             raise ValueError(f"indicadores.history: {label} must be 'YYYY-MM-DD', got {value!r}")
         try:
-            parsed[label] = _date.fromisoformat(value)
+            _date.fromisoformat(value)
         except ValueError as exc:
             raise ValueError(
                 f"indicadores.history: {label} must be 'YYYY-MM-DD', got {value!r}"
             ) from exc
-    d1, d2 = parsed["from_"], parsed["to"]
-    return f"{d1.year:04d}/{d1.month:02d}/{d2.year:04d}/{d2.month:02d}"
+    return from_, to
+
+
+def _extract_history_items(body: dict[str, Any]) -> list[dict[str, Any]]:
+    """Pull the date/value series out of an ``IndicadorSeries`` envelope.
+
+    The live ``/v1/indicadores/{name}?from=…&to=…`` response shape is::
+
+        {
+            "name": "UF",
+            "source": "cmf_api_sbifv3",
+            "items": [
+                {"date": "2026-01-01", "value": "38989.15"},
+                ...
+            ],
+            "total": N
+        }
+
+    Returns the ``items`` array unwrapped for ergonomics. Defensive:
+    if the server (or a recorded mock) returns ``items: null`` or omits
+    the key entirely, we yield an empty list instead of raising.
+    """
+    items = body.get("items")
+    if not isinstance(items, list):
+        return []
+    return [v for v in items if isinstance(v, dict)]
 
 
 class IndicadoresResource(BaseResource):
@@ -185,29 +207,31 @@ class IndicadoresResource(BaseResource):
     def history(self, name: str, from_: str, to: str) -> list[dict[str, Any]]:
         """Fetch a historical range of indicator values.
 
+        Issues ``GET /indicadores/{name}?from=YYYY-MM-DD&to=YYYY-MM-DD``
+        (the live API contract — see ``backend/api/v1_public/indicadores.py``).
+
         Args:
             name: Indicator code (see :meth:`get`).
             from_: ``YYYY-MM-DD`` start date (inclusive).
             to: ``YYYY-MM-DD`` end date (inclusive).
 
         Returns:
-            The ``values`` array from the server envelope, unwrapped for
-            ergonomics — each element is ``{"date": "...", "value":
-            "..."}``.
+            The ``items`` array from the server envelope, unwrapped for
+            ergonomics — each element is
+            ``{"date": "YYYY-MM-DD", "value": "..."}``.
 
         Raises:
             ValueError: Either date is not ``YYYY-MM-DD``.
             NotFoundError: Unknown ``name``.
-            ValidationError: The server rejected the computed
-                ``periodo``.
+            ValidationError: The server rejected the range (e.g.
+                ``from > to`` or window > 365 days).
         """
         path = f"{self._path_prefix}/{quote(name, safe='')}"
-        periodo = _periodo_from_range(from_, to)
-        body = self._client._request("GET", path, params={"periodo": periodo})
-        values = body.get("values")
-        if not isinstance(values, list):
-            return []
-        return [v for v in values if isinstance(v, dict)]
+        validated_from, validated_to = _validate_history_range(from_, to)
+        body = self._client._request(
+            "GET", path, params={"from": validated_from, "to": validated_to}
+        )
+        return _extract_history_items(body)
 
 
 class AsyncIndicadoresResource(AsyncBaseResource):
@@ -224,9 +248,8 @@ class AsyncIndicadoresResource(AsyncBaseResource):
     async def history(self, name: str, from_: str, to: str) -> list[dict[str, Any]]:
         """Async variant of :meth:`IndicadoresResource.history`."""
         path = f"{self._path_prefix}/{quote(name, safe='')}"
-        periodo = _periodo_from_range(from_, to)
-        body = await self._client._request("GET", path, params={"periodo": periodo})
-        values = body.get("values")
-        if not isinstance(values, list):
-            return []
-        return [v for v in values if isinstance(v, dict)]
+        validated_from, validated_to = _validate_history_range(from_, to)
+        body = await self._client._request(
+            "GET", path, params={"from": validated_from, "to": validated_to}
+        )
+        return _extract_history_items(body)

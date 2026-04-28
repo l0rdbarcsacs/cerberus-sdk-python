@@ -5,11 +5,13 @@ affordances:
 
 * :meth:`IndicadoresResource.get` — single-date lookup (no ``date`` arg
   means "latest").
-* :meth:`IndicadoresResource.history` — historical range transformed
-  from ``YYYY-MM-DD`` start/end into the CMF ``periodo=Y/M/Y/M`` form.
+* :meth:`IndicadoresResource.history` — historical range issued as
+  ``?from=YYYY-MM-DD&to=YYYY-MM-DD`` (matching the live API contract in
+  ``backend/api/v1_public/indicadores.py``).
 
 Server envelopes are returned verbatim by ``get`` (single document) and
-unwrapped for ``history`` (the ``values`` array).
+unwrapped for ``history`` (the ``items`` array of date/value pairs from
+the ``IndicadorSeries`` schema).
 """
 
 from __future__ import annotations
@@ -125,23 +127,23 @@ class TestIndicadoresGet:
 
 
 class TestIndicadoresHistory:
-    def test_history_builds_periodo_param(
+    def test_history_forwards_from_to_params(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         route = respx_mock.get(
             "/indicadores/UF",
-            params={"periodo": "2026/01/2026/04"},
+            params={"from": "2026-01-01", "to": "2026-04-30"},
         ).mock(
             return_value=httpx.Response(
                 200,
                 json={
                     "name": "UF",
-                    "periodo": {"from": "2026-01-01", "to": "2026-04-30"},
-                    "values": [
+                    "source": "cmf_api_sbifv3",
+                    "items": [
                         {"date": "2026-01-01", "value": "38989.15"},
                         {"date": "2026-04-24", "value": "39421.73"},
                     ],
-                    "count": 2,
+                    "total": 2,
                 },
             )
         )
@@ -153,34 +155,34 @@ class TestIndicadoresHistory:
         ]
         assert route.called
 
-    def test_history_empty_values_returns_empty_list(
+    def test_history_empty_items_returns_empty_list(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.get(
             "/indicadores/UF",
-            params={"periodo": "2026/01/2026/01"},
+            params={"from": "2026-01-01", "to": "2026-01-31"},
         ).mock(
             return_value=httpx.Response(
                 200,
                 json={
                     "name": "UF",
-                    "periodo": {"from": "2026-01-01", "to": "2026-01-31"},
-                    "values": [],
-                    "count": 0,
+                    "source": "cmf_api_sbifv3",
+                    "items": [],
+                    "total": 0,
                 },
             )
         )
         resource = IndicadoresResource(sync_client)
         assert resource.history("UF", from_="2026-01-01", to="2026-01-31") == []
 
-    def test_history_malformed_values_defensively_returns_empty(
+    def test_history_malformed_items_defensively_returns_empty(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        """Defensive: a server bug returning ``values: null`` must not raise."""
+        """Defensive: a server bug returning ``items: null`` must not raise."""
         respx_mock.get(
             "/indicadores/UF",
-            params={"periodo": "2026/01/2026/04"},
-        ).mock(return_value=httpx.Response(200, json={"name": "UF", "values": None}))
+            params={"from": "2026-01-01", "to": "2026-04-30"},
+        ).mock(return_value=httpx.Response(200, json={"name": "UF", "items": None}))
         resource = IndicadoresResource(sync_client)
         assert resource.history("UF", from_="2026-01-01", to="2026-04-30") == []
 
@@ -215,7 +217,7 @@ class TestIndicadoresHistory:
     ) -> None:
         respx_mock.get(
             "/indicadores/UF",
-            params={"periodo": "2026/04/2026/01"},
+            params={"from": "2026-04-01", "to": "2026-01-01"},
         ).mock(
             return_value=httpx.Response(
                 422,
@@ -223,7 +225,7 @@ class TestIndicadoresHistory:
                     "type": "about:blank",
                     "title": "Validation error",
                     "status": 422,
-                    "detail": "periodo from > to",
+                    "detail": "from > to",
                 },
             )
         )
@@ -254,13 +256,16 @@ class TestIndicadoresAsync:
     async def test_history(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get("/indicadores/UF", params={"periodo": "2026/01/2026/04"}).mock(
+        respx_mock.get(
+            "/indicadores/UF", params={"from": "2026-01-01", "to": "2026-04-30"}
+        ).mock(
             return_value=httpx.Response(
                 200,
                 json={
                     "name": "UF",
-                    "values": [{"date": "2026-01-01", "value": "38989.15"}],
-                    "count": 1,
+                    "source": "cmf_api_sbifv3",
+                    "items": [{"date": "2026-01-01", "value": "38989.15"}],
+                    "total": 1,
                 },
             )
         )
@@ -273,13 +278,13 @@ class TestIndicadoresAsync:
         with pytest.raises(ValueError, match="YYYY-MM-DD"):
             await resource.history("UF", from_="nope", to="2026-04-30")
 
-    async def test_history_malformed_values_defensively_returns_empty(
+    async def test_history_malformed_items_defensively_returns_empty(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        """Async mirror of the defensive null-values branch."""
-        respx_mock.get("/indicadores/UF", params={"periodo": "2026/01/2026/04"}).mock(
-            return_value=httpx.Response(200, json={"name": "UF", "values": None})
-        )
+        """Async mirror of the defensive null-items branch."""
+        respx_mock.get(
+            "/indicadores/UF", params={"from": "2026-01-01", "to": "2026-04-30"}
+        ).mock(return_value=httpx.Response(200, json={"name": "UF", "items": None}))
         resource = AsyncIndicadoresResource(async_client)
         assert await resource.history("UF", from_="2026-01-01", to="2026-04-30") == []
 
