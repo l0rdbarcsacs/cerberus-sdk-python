@@ -7,7 +7,6 @@ import pytest
 import respx
 
 from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
-from cerberus_compliance.errors import NotFoundError
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 from cerberus_compliance.resources.tdc import (
     AsyncTDCResource,
@@ -52,32 +51,10 @@ class TestTDCSync:
         resource.list(limit=10, extra_none=None)
         assert route.called
 
-    def test_get(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
-        respx_mock.get("/tdc/tdc-001").mock(
-            return_value=httpx.Response(200, json={"id": "tdc-001", "title": "test"})
-        )
+    def test_get_raises_not_implemented(self, sync_client: CerberusClient) -> None:
         resource = TDCResource(sync_client)
-        result = resource.get("tdc-001")
-        assert result["title"] == "test"
-
-    def test_get_not_found(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
-        respx_mock.get("/tdc/nonexistent").mock(
-            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
-        )
-        resource = TDCResource(sync_client)
-        with pytest.raises(NotFoundError):
-            resource.get("nonexistent")
-
-    def test_get_percent_encodes_id(
-        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        route = respx_mock.get("/tdc/..%2Fadmin").mock(
-            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
-        )
-        resource = TDCResource(sync_client)
-        with pytest.raises(NotFoundError):
-            resource.get("../admin")
-        assert route.called
+        with pytest.raises(NotImplementedError, match="not a real API endpoint"):
+            resource.get("tdc-001")
 
     def test_iter_all_paginates(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
@@ -102,14 +79,10 @@ class TestTDCAsync:
         resource = AsyncTDCResource(async_client)
         assert await resource.list() == [{"id": "x"}]
 
-    async def test_get(
-        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
-    ) -> None:
-        respx_mock.get("/tdc/tdc-001").mock(
-            return_value=httpx.Response(200, json={"id": "tdc-001"})
-        )
+    async def test_get_raises_not_implemented(self, async_client: AsyncCerberusClient) -> None:
         resource = AsyncTDCResource(async_client)
-        assert await resource.get("tdc-001") == {"id": "tdc-001"}
+        with pytest.raises(NotImplementedError, match="not a real API endpoint"):
+            await resource.get("tdc-001")
 
     async def test_iter_all_paginates(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter

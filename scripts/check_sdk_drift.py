@@ -73,15 +73,28 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/entities/by-rut/{rut}"): ("entities", "by_rut"),  # G12
     ("GET", "/entities/{entity_id}/ownership"): ("entities", "ownership"),  # G13
     ("GET", "/entities/{entity_id}/directors"): ("entities", "directors"),
+    ("GET", "/entities/{entity_id}/diff"): ("entities", "diff"),
+    # /bancos — bank fichas live under EntitiesResource because they're keyed
+    # by entity RUT. /fichas/latest and /fichas/{fy}/{fm} are not yet wrapped.
+    ("GET", "/bancos/{rut}/fichas"): ("entities", "bancos_fichas"),
+    ("GET", "/bancos/{rut}/fichas/latest"): ("entities", "bancos_fichas_latest"),
+    ("GET", "/bancos/{rut}/fichas/latest-per-section"): (
+        "entities",
+        "bancos_fichas_latest_per_section",
+    ),
+    ("GET", "/bancos/{rut}/fichas/{fiscal_year}/{fiscal_month}"): (
+        "entities",
+        "bancos_fichas_period",
+    ),
     # /sanctions (G2 — sanctions by entity moved here, away from /entities/{id}/sanctions)
     ("GET", "/sanctions"): ("sanctions", "list"),
     ("GET", "/sanctions/{sancion_id}"): ("sanctions", "get"),
     ("GET", "/sanctions/by-entity/{entity_id}"): ("entities", "sanctions"),  # G2
-    # /persons — only the regulatory-profile endpoint is real in prod.
-    # ``PersonsResource.list`` and ``PersonsResource.get`` are SDK methods
-    # deprecated in v0.2.0 (they raise ``NotImplementedError`` at runtime and
-    # will be removed in v0.3.0); they are intentionally absent from this
-    # coverage table so the drift report stays 0-rotten.
+    ("GET", "/sanctions/cross-reference"): ("sanctions", "cross_reference"),
+    # /persons — list endpoint is real in prod (added v0.6.x). regulatory-profile
+    # is the per-person enrichment endpoint. PersonsResource.get is deprecated
+    # at runtime (raises NotImplementedError) and intentionally absent.
+    ("GET", "/persons"): ("persons", "list"),
     ("GET", "/persons/{rut}/regulatory-profile"): ("persons", "regulatory_profile"),
     # /regulations (+ G16 search)
     ("GET", "/regulations"): ("regulations", "list"),
@@ -104,25 +117,38 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     # (``?periodo=``); the SDK splits that into ``get()`` + ``history()``
     # but both land on the same OpenAPI entry.
     ("GET", "/indicadores/{name}"): ("indicadores", "get"),
-    # v0.4.0 — P5.3 nine new resources + universal semantic search
+    # v0.4.0 — P5.3 nine new resources + universal semantic search.
+    # Per-id ``GET /{resource}/{id}`` endpoints are NOT exposed in prod; the
+    # corresponding ``ResourcesResource.get`` SDK methods raise
+    # NotImplementedError at runtime and are intentionally absent from this
+    # coverage table so the drift report stays 0-rotten.
     ("GET", "/resoluciones"): ("resoluciones", "list"),
-    ("GET", "/resoluciones/{resolucion_id}"): ("resoluciones", "get"),
     ("GET", "/opas"): ("opas", "list"),
-    ("GET", "/opas/{opa_id}"): ("opas", "get"),
     ("GET", "/tdc"): ("tdc", "list"),
-    ("GET", "/tdc/{tdc_id}"): ("tdc", "get"),
     ("GET", "/art12"): ("art12", "list"),
-    ("GET", "/art12/{art12_id}"): ("art12", "get"),
     ("GET", "/art20"): ("art20", "list"),
-    ("GET", "/art20/{art20_id}"): ("art20", "get"),
     ("GET", "/comunicaciones"): ("comunicaciones", "list"),
-    ("GET", "/comunicaciones/{comunicacion_id}"): ("comunicaciones", "get"),
     ("GET", "/dictamenes"): ("dictamenes", "list"),
-    ("GET", "/dictamenes/{dictamen_id}"): ("dictamenes", "get"),
     ("GET", "/esg/{rut}"): ("esg", "get"),
+    ("GET", "/esg/rankings"): ("esg", "rankings"),
     ("GET", "/normativa/historic"): ("normativa_historic", "list"),
-    ("GET", "/normativa/historic/{historic_id}"): ("normativa_historic", "get"),
     ("POST", "/search"): ("search", "search"),
+    # v0.6.0 — webhooks, exports, equity, sasb-topics, admin, sanctions x-ref
+    ("GET", "/webhooks"): ("webhooks", "list"),
+    ("POST", "/webhooks"): ("webhooks", "create"),
+    ("GET", "/webhooks/{webhook_id}"): ("webhooks", "get"),
+    ("PATCH", "/webhooks/{webhook_id}"): ("webhooks", "update"),
+    ("DELETE", "/webhooks/{webhook_id}"): ("webhooks", "delete"),
+    ("GET", "/webhooks/{webhook_id}/deliveries"): ("webhooks", "deliveries"),
+    ("POST", "/webhooks/{webhook_id}/test"): ("webhooks", "test"),
+    ("POST", "/exports/{resource}"): ("exports", "create"),
+    ("GET", "/exports"): ("exports", "list"),
+    ("GET", "/exports/{export_id}"): ("exports", "get"),
+    ("DELETE", "/exports/{export_id}"): ("exports", "delete"),
+    ("GET", "/equity/{ticker}/prices"): ("equity", "prices"),
+    ("GET", "/sasb-topics"): ("sasb_topics", "list"),
+    ("GET", "/admin/api-keys/me"): ("admin_api_keys", "me"),
+    ("GET", "/resolve"): ("resolve", "resolve"),
 }
 """Keep in sync with :mod:`cerberus_compliance.resources` — one entry per
 endpoint + SDK method pair the SDK intends to wrap. Path-template variable

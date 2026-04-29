@@ -77,6 +77,7 @@ from cerberus_compliance.resources.resoluciones import (
     AsyncResolucionesResource,
     ResolucionesResource,
 )
+from cerberus_compliance.resources.resolve import AsyncResolveResource, ResolveResource
 from cerberus_compliance.resources.rpsf import (
     AsyncRPSFResource,
     RPSFResource,
@@ -132,6 +133,7 @@ __all__ = [
     "AsyncRPSFResource",
     "AsyncRegulationsResource",
     "AsyncResolucionesResource",
+    "AsyncResolveResource",
     "AsyncSanctionsResource",
     "AsyncSasbTopicsResource",
     "AsyncSearchClient",
@@ -164,6 +166,7 @@ __all__ = [
     "RateLimitError",
     "RegulationsResource",
     "ResolucionesResource",
+    "ResolveResource",
     "SanctionsResource",
     "SasbTopicsResource",
     "SbifIndicatorName",

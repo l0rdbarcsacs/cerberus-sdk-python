@@ -151,9 +151,7 @@ class TestSearchResponse:
         assert resp.hits[1].source_table == "cmf_comunicaciones"
 
     def test_empty_response(self) -> None:
-        resp = SearchResponse.model_validate(
-            {"query": "x", "hits": [], "total_searched": 0}
-        )
+        resp = SearchResponse.model_validate({"query": "x", "hits": [], "total_searched": 0})
         assert resp.hits == []
         assert resp.total_searched == 0
 
@@ -203,9 +201,7 @@ class TestSearchClientSync:
     ) -> None:
         """Empty ``SearchFilters`` (all None) must not add a ``filters`` key to the body."""
         route = respx_mock.post("/search").mock(
-            return_value=httpx.Response(
-                200, json={"query": "q", "hits": [], "total_searched": 0}
-            )
+            return_value=httpx.Response(200, json={"query": "q", "hits": [], "total_searched": 0})
         )
         sc = SearchClient(sync_client)
         sc.search(query="q", filters=SearchFilters())
@@ -217,9 +213,7 @@ class TestSearchClientSync:
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         route = respx_mock.post("/search").mock(
-            return_value=httpx.Response(
-                200, json={"query": "q", "hits": [], "total_searched": 0}
-            )
+            return_value=httpx.Response(200, json={"query": "q", "hits": [], "total_searched": 0})
         )
         sc = SearchClient(sync_client)
         sc.search(query="q", top_k=25)
@@ -257,14 +251,14 @@ class TestSearchClientAsync:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.post("/search").mock(
-            return_value=httpx.Response(
-                200, json={"query": "x", "hits": [], "total_searched": 0}
-            )
+            return_value=httpx.Response(200, json={"query": "x", "hits": [], "total_searched": 0})
         )
         sc = AsyncSearchClient(async_client)
         result = await sc.search(
             query="x",
-            filters=SearchFilters(tipo_documento=["art20_participacion"], entity_rut="96.505.760-9"),
+            filters=SearchFilters(
+                tipo_documento=["art20_participacion"], entity_rut="96.505.760-9"
+            ),
             top_k=3,
         )
         assert result.total_searched == 0
@@ -273,9 +267,7 @@ class TestSearchClientAsync:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         respx_mock.post("/search").mock(
-            return_value=httpx.Response(
-                200, json={"query": "y", "hits": [], "total_searched": 0}
-            )
+            return_value=httpx.Response(200, json={"query": "y", "hits": [], "total_searched": 0})
         )
         sc = AsyncSearchClient(async_client)
         result = await sc.search(query="y")

@@ -256,9 +256,7 @@ class TestIndicadoresAsync:
     async def test_history(
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get(
-            "/indicadores/UF", params={"from": "2026-01-01", "to": "2026-04-30"}
-        ).mock(
+        respx_mock.get("/indicadores/UF", params={"from": "2026-01-01", "to": "2026-04-30"}).mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -282,9 +280,9 @@ class TestIndicadoresAsync:
         self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
     ) -> None:
         """Async mirror of the defensive null-items branch."""
-        respx_mock.get(
-            "/indicadores/UF", params={"from": "2026-01-01", "to": "2026-04-30"}
-        ).mock(return_value=httpx.Response(200, json={"name": "UF", "items": None}))
+        respx_mock.get("/indicadores/UF", params={"from": "2026-01-01", "to": "2026-04-30"}).mock(
+            return_value=httpx.Response(200, json={"name": "UF", "items": None})
+        )
         resource = AsyncIndicadoresResource(async_client)
         assert await resource.history("UF", from_="2026-01-01", to="2026-04-30") == []
 

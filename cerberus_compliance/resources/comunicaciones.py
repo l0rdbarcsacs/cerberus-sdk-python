@@ -48,8 +48,14 @@ class ComunicacionesResource(BaseResource):
         return self._list(params=_clean_params(params))
 
     def get(self, id_: str) -> dict[str, Any]:
-        """Fetch a single comunicacion by its canonical id."""
-        return self._get(id_)
+        """Deprecated. Prod no longer exposes ``GET /comunicaciones/{id}``.
+
+        Use :meth:`list` with cursor-paginated ``**filters`` instead.
+        """
+        raise NotImplementedError(
+            "GET /comunicaciones/{id} is not a real API endpoint; "
+            "use .list(**filters) with cursor pagination instead."
+        )
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Cursor-paginate through every comunicacion record matching ``filters``."""
@@ -66,8 +72,14 @@ class AsyncComunicacionesResource(AsyncBaseResource):
         return await self._list(params=_clean_params(params))
 
     async def get(self, id_: str) -> dict[str, Any]:
-        """Async variant of :meth:`ComunicacionesResource.get`."""
-        return await self._get(id_)
+        """Deprecated. Prod no longer exposes ``GET /comunicaciones/{id}``.
+
+        Use :meth:`list` with cursor-paginated ``**filters`` instead.
+        """
+        raise NotImplementedError(
+            "GET /comunicaciones/{id} is not a real API endpoint; "
+            "use .list(**filters) with cursor pagination instead."
+        )
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async variant of :meth:`ComunicacionesResource.iter_all`."""
