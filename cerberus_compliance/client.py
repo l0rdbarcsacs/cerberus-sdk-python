@@ -86,6 +86,7 @@ from cerberus_compliance.resources.resoluciones import (
     AsyncResolucionesResource,
     ResolucionesResource,
 )
+from cerberus_compliance.resources.resolve import AsyncResolveResource, ResolveResource
 from cerberus_compliance.resources.rpsf import (
     AsyncRPSFResource,
     RPSFResource,
@@ -271,6 +272,7 @@ class CerberusClient:
         self.exports = ExportsResource(self)
         self.webhooks = WebhooksResource(self)
         self.equity = EquityResource(self)
+        self.resolve = ResolveResource(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
@@ -464,6 +466,7 @@ class AsyncCerberusClient:
         self.exports = AsyncExportsResource(self)
         self.webhooks = AsyncWebhooksResource(self)
         self.equity = AsyncEquityResource(self)
+        self.resolve = AsyncResolveResource(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 

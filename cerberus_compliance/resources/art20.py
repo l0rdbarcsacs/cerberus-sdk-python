@@ -50,8 +50,14 @@ class Art20Resource(BaseResource):
         return self._list(params=_clean_params(params))
 
     def get(self, id_: str) -> dict[str, Any]:
-        """Fetch a single Art.20 hecho-esencial by its canonical id."""
-        return self._get(id_)
+        """Deprecated. Prod no longer exposes ``GET /art20/{id}``.
+
+        Use :meth:`list` with cursor-paginated ``**filters`` instead.
+        """
+        raise NotImplementedError(
+            "GET /art20/{id} is not a real API endpoint; "
+            "use .list(**filters) with cursor pagination instead."
+        )
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Cursor-paginate through every Art.20 record matching ``filters``."""
@@ -68,8 +74,14 @@ class AsyncArt20Resource(AsyncBaseResource):
         return await self._list(params=_clean_params(params))
 
     async def get(self, id_: str) -> dict[str, Any]:
-        """Async variant of :meth:`Art20Resource.get`."""
-        return await self._get(id_)
+        """Deprecated. Prod no longer exposes ``GET /art20/{id}``.
+
+        Use :meth:`list` with cursor-paginated ``**filters`` instead.
+        """
+        raise NotImplementedError(
+            "GET /art20/{id} is not a real API endpoint; "
+            "use .list(**filters) with cursor pagination instead."
+        )
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async variant of :meth:`Art20Resource.iter_all`."""

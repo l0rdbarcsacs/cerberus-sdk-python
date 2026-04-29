@@ -49,8 +49,14 @@ class DictamenesResource(BaseResource):
         return self._list(params=_clean_params(params))
 
     def get(self, id_: str) -> dict[str, Any]:
-        """Fetch a single dictamen by its canonical id."""
-        return self._get(id_)
+        """Deprecated. Prod no longer exposes ``GET /dictamenes/{id}``.
+
+        Use :meth:`list` with cursor-paginated ``**filters`` instead.
+        """
+        raise NotImplementedError(
+            "GET /dictamenes/{id} is not a real API endpoint; "
+            "use .list(**filters) with cursor pagination instead."
+        )
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Cursor-paginate through every dictamen record matching ``filters``."""
@@ -67,8 +73,14 @@ class AsyncDictamenesResource(AsyncBaseResource):
         return await self._list(params=_clean_params(params))
 
     async def get(self, id_: str) -> dict[str, Any]:
-        """Async variant of :meth:`DictamenesResource.get`."""
-        return await self._get(id_)
+        """Deprecated. Prod no longer exposes ``GET /dictamenes/{id}``.
+
+        Use :meth:`list` with cursor-paginated ``**filters`` instead.
+        """
+        raise NotImplementedError(
+            "GET /dictamenes/{id} is not a real API endpoint; "
+            "use .list(**filters) with cursor pagination instead."
+        )
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async variant of :meth:`DictamenesResource.iter_all`."""

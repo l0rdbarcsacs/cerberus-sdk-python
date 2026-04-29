@@ -47,8 +47,14 @@ class OPAsResource(BaseResource):
         return self._list(params=_clean_params(params))
 
     def get(self, id_: str) -> dict[str, Any]:
-        """Fetch a single OPA record by its canonical id."""
-        return self._get(id_)
+        """Deprecated. Prod no longer exposes ``GET /opas/{id}``.
+
+        Use :meth:`list` with cursor-paginated ``**filters`` instead.
+        """
+        raise NotImplementedError(
+            "GET /opas/{id} is not a real API endpoint; "
+            "use .list(**filters) with cursor pagination instead."
+        )
 
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Cursor-paginate through every OPA record matching ``filters``."""
@@ -65,8 +71,14 @@ class AsyncOPAsResource(AsyncBaseResource):
         return await self._list(params=_clean_params(params))
 
     async def get(self, id_: str) -> dict[str, Any]:
-        """Async variant of :meth:`OPAsResource.get`."""
-        return await self._get(id_)
+        """Deprecated. Prod no longer exposes ``GET /opas/{id}``.
+
+        Use :meth:`list` with cursor-paginated ``**filters`` instead.
+        """
+        raise NotImplementedError(
+            "GET /opas/{id} is not a real API endpoint; "
+            "use .list(**filters) with cursor pagination instead."
+        )
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async variant of :meth:`OPAsResource.iter_all`."""

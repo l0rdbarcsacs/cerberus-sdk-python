@@ -177,6 +177,31 @@ class EntitiesResource(BaseResource):
             f"/bancos/{quote(rut, safe='')}/fichas/latest-per-section",
         )
 
+    def bancos_fichas_latest(self, rut: str) -> dict[str, Any]:
+        """Return the most recent ficha period for *rut* with all sections.
+
+        Issues ``GET /bancos/{rut}/fichas/latest``. Body returned verbatim.
+        """
+        return self._client._request(
+            "GET",
+            f"/bancos/{quote(rut, safe='')}/fichas/latest",
+        )
+
+    def bancos_fichas_period(
+        self,
+        rut: str,
+        fiscal_year: int,
+        fiscal_month: int,
+    ) -> dict[str, Any]:
+        """Return all ficha sections for *rut* at (*fiscal_year*, *fiscal_month*).
+
+        Issues ``GET /bancos/{rut}/fichas/{fiscal_year}/{fiscal_month}``.
+        """
+        return self._client._request(
+            "GET",
+            f"/bancos/{quote(rut, safe='')}/fichas/{fiscal_year}/{fiscal_month}",
+        )
+
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Iterate through every entity, transparently paginating.
 
@@ -288,6 +313,25 @@ class AsyncEntitiesResource(AsyncBaseResource):
         return await self._client._request(
             "GET",
             f"/bancos/{quote(rut, safe='')}/fichas/latest-per-section",
+        )
+
+    async def bancos_fichas_latest(self, rut: str) -> dict[str, Any]:
+        """Async variant of :meth:`EntitiesResource.bancos_fichas_latest`."""
+        return await self._client._request(
+            "GET",
+            f"/bancos/{quote(rut, safe='')}/fichas/latest",
+        )
+
+    async def bancos_fichas_period(
+        self,
+        rut: str,
+        fiscal_year: int,
+        fiscal_month: int,
+    ) -> dict[str, Any]:
+        """Async variant of :meth:`EntitiesResource.bancos_fichas_period`."""
+        return await self._client._request(
+            "GET",
+            f"/bancos/{quote(rut, safe='')}/fichas/{fiscal_year}/{fiscal_month}",
         )
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:

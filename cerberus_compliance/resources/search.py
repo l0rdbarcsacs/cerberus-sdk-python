@@ -217,7 +217,7 @@ class SearchClient:
             filters: Optional :class:`SearchFilters` to narrow the result
                 set by document type, taxonomy tags, entity RUT, or
                 publication date range.
-            top_k: Maximum number of hits to return (1–40, default 10).
+            top_k: Maximum number of hits to return (1-40, default 10).
 
         Returns:
             :class:`SearchResponse` containing the ranked hit list.
