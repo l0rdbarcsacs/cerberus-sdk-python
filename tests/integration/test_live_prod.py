@@ -1,22 +1,22 @@
-"""Integration tests against Cerberus Compliance staging.
+"""Integration tests against Cerberus Compliance prod.
 
-These tests hit the real staging API
-(``https://staging-compliance.cerberus.cl/v1``) and are therefore:
+These tests hit the real prod API
+(``https://compliance.cerberus.cl/v1``) and are therefore:
 
-* Skipped when ``CERBERUS_STAGING_KEY`` is not set in the env.
+* Skipped when ``CERBERUS_API_KEY`` is not set in the env.
 * Opt-in in CI — Instance D wires this via a GitHub Actions secret of
   the same name. See docs/HANDOFF_P51_A.md for the orchestration plan.
 
 Run locally::
 
-    export CERBERUS_STAGING_KEY=ck_test_...
+    export CERBERUS_API_KEY=ck_test_...
     pytest tests/integration/ -q
 
 If the endpoint exists but returns an empty result (404 for a missing
 RUT, empty list for a filter that matches nothing), the test *passes* —
 we exercise the plumbing, not the corpus. Tests that strictly require
 a populated fixture (e.g. Falabella must exist) are marked with an
-``xfail(strict=False)`` so a fresh staging DB doesn't break CI.
+``xfail(strict=False)`` so a fresh prod DB doesn't break CI.
 """
 
 from __future__ import annotations
@@ -33,25 +33,25 @@ from cerberus_compliance import (
     NotFoundError,
 )
 
-CERBERUS_STAGING_KEY = os.getenv("CERBERUS_STAGING_KEY")
-STAGING_BASE_URL = os.getenv(
-    "CERBERUS_STAGING_BASE_URL", "https://staging-compliance.cerberus.cl/v1"
+CERBERUS_API_KEY = os.getenv("CERBERUS_API_KEY")
+LIVE_BASE_URL = os.getenv(
+    "CERBERUS_BASE_URL", "https://compliance.cerberus.cl/v1"
 )
 
-# Anchor RUT seeded in the staging corpus (P5 seed script): Falabella.
+# Anchor RUT seeded in the prod corpus (P5 seed script): Falabella.
 FALABELLA_RUT = "96.505.760-9"
 
 pytestmark = pytest.mark.skipif(
-    not CERBERUS_STAGING_KEY,
-    reason="CERBERUS_STAGING_KEY not set; integration tests require staging access",
+    not CERBERUS_API_KEY,
+    reason="CERBERUS_API_KEY not set; integration tests require prod access",
 )
 
 
 @pytest.fixture
-def staging_client() -> Iterator[CerberusClient]:
-    """Sync client pointing at the staging base URL."""
-    assert CERBERUS_STAGING_KEY is not None  # narrow for type-checker; pytestmark skips otherwise
-    client = CerberusClient(api_key=CERBERUS_STAGING_KEY, base_url=STAGING_BASE_URL, timeout=30.0)
+def live_client() -> Iterator[CerberusClient]:
+    """Sync client pointing at the prod base URL."""
+    assert CERBERUS_API_KEY is not None  # narrow for type-checker; pytestmark skips otherwise
+    client = CerberusClient(api_key=CERBERUS_API_KEY, base_url=LIVE_BASE_URL, timeout=30.0)
     try:
         yield client
     finally:
@@ -63,19 +63,19 @@ def staging_client() -> Iterator[CerberusClient]:
 # ---------------------------------------------------------------------------
 
 
-class TestStagingKYB:
-    def test_kyb_get_falabella(self, staging_client: CerberusClient) -> None:
+class TestProdKYB:
+    def test_kyb_get_falabella(self, live_client: CerberusClient) -> None:
         try:
-            profile = staging_client.kyb.get(FALABELLA_RUT)
+            profile = live_client.kyb.get(FALABELLA_RUT)
         except NotFoundError:
-            pytest.xfail("Falabella not seeded in current staging corpus")
+            pytest.xfail("Falabella not seeded in current prod corpus")
         assert isinstance(profile, dict)
         # legal_name is the single documented stable field across cache states.
         assert "legal_name" in profile or "rut" in profile
 
-    def test_kyb_get_missing_raises_not_found(self, staging_client: CerberusClient) -> None:
+    def test_kyb_get_missing_raises_not_found(self, live_client: CerberusClient) -> None:
         with pytest.raises((NotFoundError, CerberusAPIError)):
-            staging_client.kyb.get("76000000-0")
+            live_client.kyb.get("76000000-0")
 
 
 # ---------------------------------------------------------------------------
@@ -83,30 +83,30 @@ class TestStagingKYB:
 # ---------------------------------------------------------------------------
 
 
-class TestStagingEntities:
-    def test_list(self, staging_client: CerberusClient) -> None:
-        entities = staging_client.entities.list(limit=1)
+class TestProdEntities:
+    def test_list(self, live_client: CerberusClient) -> None:
+        entities = live_client.entities.list(limit=1)
         assert isinstance(entities, list)
 
-    def test_by_rut(self, staging_client: CerberusClient) -> None:
+    def test_by_rut(self, live_client: CerberusClient) -> None:
         try:
-            entity = staging_client.entities.by_rut(FALABELLA_RUT)
+            entity = live_client.entities.by_rut(FALABELLA_RUT)
         except NotFoundError:
-            pytest.xfail("Falabella not seeded in current staging corpus")
+            pytest.xfail("Falabella not seeded in current prod corpus")
         assert isinstance(entity, dict)
         assert "id" in entity or "rut" in entity
 
-    def test_get_then_ownership(self, staging_client: CerberusClient) -> None:
-        entities = staging_client.entities.list(limit=1)
+    def test_get_then_ownership(self, live_client: CerberusClient) -> None:
+        entities = live_client.entities.list(limit=1)
         if not entities:
-            pytest.skip("no entities in staging corpus")
+            pytest.skip("no entities in prod corpus")
         entity_id = entities[0].get("id")
         if entity_id is None:
             pytest.skip("entity payload missing id field")
-        full = staging_client.entities.get(str(entity_id))
+        full = live_client.entities.get(str(entity_id))
         assert isinstance(full, dict)
         try:
-            ownership = staging_client.entities.ownership(str(entity_id))
+            ownership = live_client.entities.ownership(str(entity_id))
         except NotFoundError:
             pytest.xfail("entity has no ownership record in current corpus")
         assert isinstance(ownership, dict)
@@ -117,26 +117,26 @@ class TestStagingEntities:
 # ---------------------------------------------------------------------------
 
 
-class TestStagingSanctions:
-    def test_list(self, staging_client: CerberusClient) -> None:
-        results = staging_client.sanctions.list(limit=1)
+class TestProdSanctions:
+    def test_list(self, live_client: CerberusClient) -> None:
+        results = live_client.sanctions.list(limit=1)
         assert isinstance(results, list)
 
-    def test_by_entity_via_entities_sanctions(self, staging_client: CerberusClient) -> None:
+    def test_by_entity_via_entities_sanctions(self, live_client: CerberusClient) -> None:
         """G2 check: entities.sanctions(id) must succeed against the real API.
 
         Uses the first entity from /entities/list as the target so this
         test stays decoupled from whether any specific RUT is seeded.
         """
-        entities = staging_client.entities.list(limit=1)
+        entities = live_client.entities.list(limit=1)
         if not entities:
-            pytest.skip("no entities in staging corpus")
+            pytest.skip("no entities in prod corpus")
         entity_id = entities[0].get("id")
         if entity_id is None:
             pytest.skip("entity payload missing id field")
         # Even when the entity has zero hits, we expect a 200 with an empty
         # list — not a 404 for the endpoint itself.
-        hits = staging_client.entities.sanctions(str(entity_id))
+        hits = live_client.entities.sanctions(str(entity_id))
         assert isinstance(hits, list)
 
 
@@ -145,13 +145,13 @@ class TestStagingSanctions:
 # ---------------------------------------------------------------------------
 
 
-class TestStagingRegulations:
-    def test_list(self, staging_client: CerberusClient) -> None:
-        regs = staging_client.regulations.list(limit=1)
+class TestProdRegulations:
+    def test_list(self, live_client: CerberusClient) -> None:
+        regs = live_client.regulations.list(limit=1)
         assert isinstance(regs, list)
 
-    def test_search(self, staging_client: CerberusClient) -> None:
-        results = staging_client.regulations.search("Ley")
+    def test_search(self, live_client: CerberusClient) -> None:
+        results = live_client.regulations.search("Ley")
         assert isinstance(results, list)
 
 
@@ -160,9 +160,9 @@ class TestStagingRegulations:
 # ---------------------------------------------------------------------------
 
 
-class TestStagingRPSF:
-    def test_list(self, staging_client: CerberusClient) -> None:
-        records = staging_client.rpsf.list(limit=1)
+class TestProdRPSF:
+    def test_list(self, live_client: CerberusClient) -> None:
+        records = live_client.rpsf.list(limit=1)
         assert isinstance(records, list)
 
 
@@ -171,9 +171,9 @@ class TestStagingRPSF:
 # ---------------------------------------------------------------------------
 
 
-class TestStagingNormativa:
-    def test_list(self, staging_client: CerberusClient) -> None:
-        norms = staging_client.normativa.list(limit=1)
+class TestProdNormativa:
+    def test_list(self, live_client: CerberusClient) -> None:
+        norms = live_client.normativa.list(limit=1)
         assert isinstance(norms, list)
 
 
@@ -182,28 +182,28 @@ class TestStagingNormativa:
 # ---------------------------------------------------------------------------
 
 
-class TestStagingNormativaConsulta:
+class TestProdNormativaConsulta:
     # The /normativa-consulta endpoint ships in backend PR #45
     # (feat/p52-new-ingestors). Until that PR is merged AND deployed to
-    # staging, every call to this surface returns a 404 for the route
+    # prod, every call to this surface returns a 404 for the route
     # itself (not an empty list). We mark the class xfail(strict=False)
     # so CI stays green during the rc1 window; once the backend lands,
     # these will start passing — at which point we drop the decorator.
     @pytest.mark.xfail(
-        reason="Requires backend PR #45 (feat/p52-new-ingestors) deployed to staging",
+        reason="Requires backend PR #45 (feat/p52-new-ingestors) deployed to prod",
         strict=False,
     )
-    def test_list_abierta(self, staging_client: CerberusClient) -> None:
+    def test_list_abierta(self, live_client: CerberusClient) -> None:
         """Default ``estado='abierta'`` must return a list (possibly empty)."""
-        rows = staging_client.normativa_consulta.list(limit=5)
+        rows = live_client.normativa_consulta.list(limit=5)
         assert isinstance(rows, list)
 
     @pytest.mark.xfail(
-        reason="Requires backend PR #45 (feat/p52-new-ingestors) deployed to staging",
+        reason="Requires backend PR #45 (feat/p52-new-ingestors) deployed to prod",
         strict=False,
     )
-    def test_list_cerrada(self, staging_client: CerberusClient) -> None:
-        rows = staging_client.normativa_consulta.list(estado="cerrada", limit=5)
+    def test_list_cerrada(self, live_client: CerberusClient) -> None:
+        rows = live_client.normativa_consulta.list(estado="cerrada", limit=5)
         assert isinstance(rows, list)
 
 
@@ -212,8 +212,8 @@ class TestStagingNormativaConsulta:
 # ---------------------------------------------------------------------------
 
 
-class TestStagingIndicadores:
-    def test_get_uf_latest(self, staging_client: CerberusClient) -> None:
+class TestProdIndicadores:
+    def test_get_uf_latest(self, live_client: CerberusClient) -> None:
         """Latest UF must come back as a dict with a string ``value``.
 
         We do not assert a specific value (UF changes daily); we assert the
@@ -221,30 +221,30 @@ class TestStagingIndicadores:
         schema.
         """
         try:
-            uf = staging_client.indicadores.get("UF")
+            uf = live_client.indicadores.get("UF")
         except NotFoundError:
-            pytest.xfail("no UF value in current staging corpus")
+            pytest.xfail("no UF value in current prod corpus")
         assert isinstance(uf, dict)
         assert "value" in uf
 
-    def test_get_uf_on_pinned_date(self, staging_client: CerberusClient) -> None:
+    def test_get_uf_on_pinned_date(self, live_client: CerberusClient) -> None:
         """Point-in-time lookup against the deep-research snapshot date."""
         try:
-            uf = staging_client.indicadores.get("UF", date="2026-04-24")
+            uf = live_client.indicadores.get("UF", date="2026-04-24")
         except NotFoundError:
-            pytest.xfail("UF not seeded for 2026-04-24 in current staging corpus")
+            pytest.xfail("UF not seeded for 2026-04-24 in current prod corpus")
         assert isinstance(uf, dict)
 
-    def test_history_short_range(self, staging_client: CerberusClient) -> None:
+    def test_history_short_range(self, live_client: CerberusClient) -> None:
         """Historical range transformation + unwrap must produce a list.
 
-        The list may be empty on a sparse staging corpus — we only verify
+        The list may be empty on a sparse prod corpus — we only verify
         the SDK contract, not the server corpus.
         """
         try:
-            series = staging_client.indicadores.history("UF", from_="2026-04-01", to="2026-04-30")
+            series = live_client.indicadores.history("UF", from_="2026-04-01", to="2026-04-30")
         except (NotFoundError, CerberusAPIError):
-            pytest.xfail("staging indicadores history not populated")
+            pytest.xfail("prod indicadores history not populated")
         assert isinstance(series, list)
 
 
@@ -252,16 +252,16 @@ class TestStagingIndicadores:
 # Persons
 # ---------------------------------------------------------------------------
 
-# Anchor RUT seeded in the staging KYB corpus (P5 seed script): Carlos Heller,
+# Anchor RUT seeded in the prod KYB corpus (P5 seed script): Carlos Heller,
 # a director of Falabella, confirmed to have a regulatory profile in the
-# staging audit. This is the single persona used for the integration round-trip
+# prod audit. This is the single persona used for the integration round-trip
 # so the test stays decoupled from the (deprecated) /persons collection
 # endpoint which does not exist in the prod API.
 CARLOS_HELLER_RUT = "11.111.111-1"
 
 
-class TestStagingPersons:
-    def test_regulatory_profile_roundtrip(self, staging_client: CerberusClient) -> None:
+class TestProdPersons:
+    def test_regulatory_profile_roundtrip(self, live_client: CerberusClient) -> None:
         """G-persons check: regulatory_profile() must succeed for a known RUT.
 
         Replaces the pre-v0.2.0 ``persons.list()`` + ``regulatory_profile()``
@@ -269,7 +269,7 @@ class TestStagingPersons:
         RUT from the KYB corpus instead.
         """
         try:
-            profile = staging_client.persons.regulatory_profile(CARLOS_HELLER_RUT)
+            profile = live_client.persons.regulatory_profile(CARLOS_HELLER_RUT)
         except NotFoundError:
             pytest.xfail(f"no regulatory profile for {CARLOS_HELLER_RUT} in current corpus")
         assert isinstance(profile, dict)
@@ -285,14 +285,14 @@ class TestStagingPersons:
 # ---------------------------------------------------------------------------
 
 
-class TestAsyncStaging:
+class TestAsyncProd:
     async def test_async_kyb_roundtrip(self) -> None:
-        assert CERBERUS_STAGING_KEY is not None
+        assert CERBERUS_API_KEY is not None
         async with AsyncCerberusClient(
-            api_key=CERBERUS_STAGING_KEY, base_url=STAGING_BASE_URL, timeout=30.0
+            api_key=CERBERUS_API_KEY, base_url=LIVE_BASE_URL, timeout=30.0
         ) as client:
             try:
                 profile = await client.kyb.get(FALABELLA_RUT)
             except NotFoundError:
-                pytest.xfail("Falabella not seeded in current staging corpus")
+                pytest.xfail("Falabella not seeded in current prod corpus")
             assert isinstance(profile, dict)

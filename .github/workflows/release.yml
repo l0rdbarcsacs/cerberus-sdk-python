@@ -64,7 +64,7 @@ jobs:
     name: Verify TestPyPI install + smoke
     needs: publish-testpypi
     runs-on: ubuntu-latest
-    # Canary strategy: RC-ONLY. The canary exercises TestPyPI install + live staging
+    # Canary strategy: RC-ONLY. The canary exercises TestPyPI install + live prod
     # smoke on every pre-release tag (-rc / -beta / -alpha). Stable tags skip this
     # job entirely (their publish-pypi condition excludes pre-release suffixes) and
     # inherit canary confidence from the prior rc tag via manual review in the
@@ -101,16 +101,18 @@ jobs:
             exit 1
           fi
           python -c "import cerberus_compliance; print('SDK version:', cerberus_compliance.__version__)"
-      - name: Smoke — import + kyb.get against staging
+      - name: Smoke — import + kyb.get against prod
         env:
-          CERBERUS_STAGING_KEY: ${{ secrets.CERBERUS_STAGING_KEY }}
+          # Staging deprecated (2026-06-07): canary smoke now targets prod.
+          # The CERBERUS_STAGING_KEY repo secret holds a prod-valid key.
+          CERBERUS_API_KEY: ${{ secrets.CERBERUS_STAGING_KEY }}
         run: |
           python - <<'PY'
           import os
           from cerberus_compliance import CerberusClient
           c = CerberusClient(
-              api_key=os.environ["CERBERUS_STAGING_KEY"],
-              base_url="https://staging-compliance.cerberus.cl/v1",
+              api_key=os.environ["CERBERUS_API_KEY"],
+              base_url="https://compliance.cerberus.cl/v1",
           )
           resp = c.kyb.get("96.505.760-9")
           assert "risk_score" in resp, f"missing risk_score: {resp.keys()}"

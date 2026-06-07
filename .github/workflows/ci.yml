@@ -70,7 +70,7 @@ jobs:
       - run: mypy --strict cerberus_compliance/
 
   integration:
-    name: integration (live staging)
+    name: integration (live prod)
     runs-on: ubuntu-latest
     needs: [test, lint, typecheck]
     # Skip on forked-PRs (no access to secrets) — run on same-repo PRs and main pushes only.
@@ -82,9 +82,13 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -e ".[dev]"
-      - name: Smoke against staging
+      - name: Smoke against prod
         env:
-          CERBERUS_STAGING_KEY: ${{ secrets.CERBERUS_STAGING_KEY }}
+          # Staging deprecated (2026-06-07): the integration suite now targets
+          # prod (compliance.cerberus.cl). The CERBERUS_STAGING_KEY repo secret
+          # holds a prod-valid key; it is mapped to the CERBERUS_API_KEY env the
+          # tests read.
+          CERBERUS_API_KEY: ${{ secrets.CERBERUS_STAGING_KEY }}
         # --no-cov disables the 95% coverage gate from pyproject.toml addopts:
         # integration tests only exercise live-API paths (~64% cov); the gate
         # is enforced by the unit-test matrix above, not by this smoke job.

@@ -15,7 +15,7 @@ Running this script tells you, at a glance:
 Usage::
 
     python scripts/check_sdk_drift.py
-    python scripts/check_sdk_drift.py --base-url https://staging-compliance.cerberus.cl/v1
+    python scripts/check_sdk_drift.py --base-url https://compliance.cerberus.cl/v1
     python scripts/check_sdk_drift.py --fail-on-drift --json
 
 Design
@@ -402,7 +402,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--base-url",
         default="https://compliance.cerberus.cl/v1",
-        help="Base URL of the prod/staging Cerberus Compliance API.",
+        help="Base URL of the Cerberus Compliance API (prod by default).",
     )
     parser.add_argument(
         "--fail-on-drift",
