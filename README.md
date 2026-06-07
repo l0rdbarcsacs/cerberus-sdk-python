@@ -1,205 +1,188 @@
-# cerberus-compliance
+# Cerberus Compliance — SDK de Python
 
-Official Python SDK for the **Cerberus Compliance API** — a Chile-specific RegTech
-platform that consolidates KYB (Know Your Business), AML/sanctions screening,
-CMF regulatory feeds, and ``Registro Público de Servicios Financieros`` (RPSF)
-lookups into a single typed client.
+SDK oficial de Python para la API de Cerberus Compliance — inteligencia de cumplimiento y datos regulatorios (RegTech) sobre entidades fiscalizadas por la Comisión para el Mercado Financiero (CMF) de Chile.
 
-[![PyPI version](https://img.shields.io/pypi/v/cerberus-compliance.svg)](https://pypi.org/project/cerberus-compliance)
-[![Python versions](https://img.shields.io/pypi/pyversions/cerberus-compliance.svg)](https://pypi.org/project/cerberus-compliance)
-[![CI](https://img.shields.io/github/actions/workflow/status/l0rdbarcsacs/cerberus-sdk-python/ci.yml?branch=main)](https://github.com/l0rdbarcsacs/cerberus-sdk-python/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/cerberus-compliance.svg)](https://pypi.org/project/cerberus-compliance/)
+[![Python](https://img.shields.io/pypi/pyversions/cerberus-compliance.svg)](https://pypi.org/project/cerberus-compliance/)
+[![CI](https://github.com/l0rdbarcsacs/cerberus-sdk-python/actions/workflows/ci.yml/badge.svg)](https://github.com/l0rdbarcsacs/cerberus-sdk-python/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-## What problem does it solve?
+## Qué es y qué resuelve
 
-Chilean compliance teams today glue together half a dozen data sources — CMF
-sanctions publications, the RPSF registry, ``hechos esenciales`` filings,
-Ley 21.521 / Ley 21.719 / NCG 380/461/514 normativa, LEI lookups, sanctions
-watchlists (OFAC / UN / EU) — and build bespoke risk scores on top. The
-Cerberus Compliance API unifies all of that behind one REST surface keyed
-on the Chilean RUT; this SDK is the typed Python client for that surface:
+Cerberus Compliance consolida fuentes oficiales públicas de la CMF en una sola API de producción, de modo que usted obtenga, en una llamada, lo que de otro modo exigiría reunir y conciliar múltiples registros dispersos.
 
-- One flagship aggregate endpoint — ``GET /kyb/{rut}`` — that returns the
-  consolidated entity dossier (directors, sanctions, RPSF inscriptions,
-  recent material events, ownership chain, risk score).
-- Narrow sub-resources for callers that want one signal at a time
-  (``entities``, ``sanctions``, ``regulations``, ``rpsf``, ``normativa``,
-  ``persons``).
-- A single exception hierarchy carrying the RFC 7807 problem document and
-  the ``X-Request-Id`` header, so support tickets are actionable.
-- Cursor-pagination helpers (``iter_all``) that lazily chase the
-  ``next_cursor`` token.
-- Synchronous (``CerberusClient``) and asynchronous (``AsyncCerberusClient``)
-  clients sharing an identical API, retry policy, and exception hierarchy.
-- ``py.typed`` marker — strict ``mypy`` compatible.
+Este paquete (`cerberus-compliance`) es el cliente de Python tipado sobre esa API: le entrega clientes síncrono y asíncrono, modelos validados con Pydantic v2, paginación por cursor y una jerarquía de errores conforme a RFC 7807, con autocompletado y seguridad de tipos en su entorno de desarrollo.
 
-## Install
+Los dominios de datos que puede consumir, en lenguaje de cliente, incluyen:
+
+- **KYB Express**: perfil consolidado de una empresa chilena (identidad, directorio, sanciones, identificador LEI, cadena de propiedad, autorización para operar y un puntaje de riesgo determinista) en una sola llamada.
+- **Entidades y personas**: fichas de personas jurídicas y naturales identificadas por RUT, con directorio, cadena de propiedad, perfil regulatorio y cambios históricos.
+- **Sanciones**: listas nacionales (CMF) e internacionales (OFAC, ONU, Unión Europea y Reino Unido), con referencia cruzada difusa por RUT o por nombre.
+- **Normativa y regulaciones**: cuerpo normativo de la CMF (leyes, NCG, circulares, oficios), su aplicabilidad por entidad, versiones históricas y consultas públicas en trámite.
+- **Registros regulatorios**: hechos esenciales (Art. 12 y Art. 20 de la Ley 18.045), OPAs, TDC, comunicaciones, dictámenes y resoluciones de la CMF.
+- **Registro Público de Servicios Financieros (RPSF, Ley 21.521)**: prestadores autorizados, sus servicios y estado de inscripción.
+- **ESG (NCG 461) y temas SASB**, **indicadores macro y financieros** (UF, UTM, USD, EUR, IPC, TMC, entre otros) y **precios bursátiles** de instrumentos chilenos e internacionales.
+- **Búsqueda semántica universal** en lenguaje natural sobre todo el corpus documental de la CMF, **copiloto regulatorio** con respuestas fundamentadas y citas verificadas a la fuente, y un **grafo de conocimiento** de entidades (co-direcciones, propiedad y grupos económicos).
+
+La plataforma está construida para Chile bajo la Ley 21.719 de protección de datos personales, con cifrado de datos personales en reposo y flujo de solicitudes ARSCO+.
+
+---
+
+## Modelo de acceso: plataforma, API y SDK
+
+Los mismos datos están disponibles por tres canales sobre **una sola API de producción**. Usted elige el canal según su perfil; no son productos distintos, sino tres formas de acceder a la misma inteligencia.
+
+| Canal | Punto de acceso | Credencial | Para quién |
+|---|---|---|---|
+| **Plataforma web (Explorer)** | `https://compliance.cerberus.cl/explorer` | Cuenta de usuario (inicio de sesión único con Google o GitHub en `/login`). Sin clave API; el acceso se asocia a su cuenta. | Equipos de cumplimiento, riesgo y negocio que desean explorar los datos de forma visual, sin escribir código. |
+| **API REST** | `https://compliance.cerberus.cl/v1` | Clave API por cabecera Bearer: `Authorization: Bearer ck_live_<su-clave>` (entorno live o test). | Equipos de ingeniería que integran la inteligencia de cumplimiento en sistemas propios desde cualquier lenguaje, mediante HTTP estándar y la especificación OpenAPI publicada. |
+| **SDK de Python (`cerberus-compliance`)** | Paquete PyPI `cerberus-compliance` (repositorio en GitHub: `https://github.com/l0rdbarcsacs/cerberus-sdk-python`); apunta a `https://compliance.cerberus.cl/v1`. | La misma clave API Bearer `ck_live_...` que la API REST; configúrela mediante la variable de entorno `CERBERUS_API_KEY` o al instanciar el cliente. | Equipos de desarrollo en Python que prefieren un cliente tipado (con `py.typed` y modelos Pydantic v2) sobre la misma API REST. |
+
+**Este SDK es el cliente de Python sobre esa misma API REST.** Lo que obtenga por el SDK es exactamente lo que obtendría por HTTP directo o lo que vería en el Explorer.
+
+### Cómo solicitar una clave API productiva
+
+Inicie sesión en la Plataforma en `https://compliance.cerberus.cl/login` con su cuenta de Google o GitHub. Para acceso productivo, escriba a `contacto@cerberus.cl` —el mismo enlace «Acceso a producción» que ofrece la Plataforma— indicando el correo de su cuenta, su organización y el volumen estimado de consultas; le responderemos con las opciones de plan y le emitiremos una clave `ck_live_...` con el plan correspondiente.
+
+La Plataforma permite un cupo diario de consultas gratuitas para evaluación —el cupo vigente se indica en la propia Plataforma—; para límites superiores, escríbanos a `contacto@cerberus.cl` (casilla organizacional).
+
+---
+
+## Instalación
 
 ```bash
 pip install cerberus-compliance
-# or
+```
+
+Con `uv`:
+
+```bash
 uv add cerberus-compliance
 ```
 
-Requires **Python 3.10+**. Core dependencies: ``httpx>=0.27,<1.0``,
-``pydantic>=2.6,<3.0``.
+Requiere Python 3.10 o superior. Las únicas dependencias en tiempo de ejecución del paquete cliente son `httpx` (`>=0.27,<1.0`) y `pydantic` (`>=2.6,<3.0`).
 
-## Configure
+---
+
+## Configuración
+
+El cliente resuelve la clave API en este orden:
+
+1. El argumento explícito `api_key=` cuando es una cadena no vacía.
+2. La variable de entorno `CERBERUS_API_KEY` cuando es una cadena no vacía.
+3. En caso contrario, lanza `ValueError` (`Cerberus API key not provided. Pass api_key= or set CERBERUS_API_KEY.`).
+
+```bash
+export CERBERUS_API_KEY="ck_live_<su-clave>"
+```
 
 ```python
-import os
 from cerberus_compliance import CerberusClient
 
-# Reads CERBERUS_API_KEY from the environment.
+# Resuelve la clave desde CERBERUS_API_KEY.
 client = CerberusClient()
 
-# Or pass the key explicitly (useful for dependency-injected test harnesses).
-client = CerberusClient(api_key=os.environ["CERBERUS_API_KEY"])
-
-# Staging / local dev: override the base URL.
-client = CerberusClient(base_url="https://staging-compliance.cerberus.cl/v1")
+# O bien, de forma explícita y con parámetros de transporte:
+client = CerberusClient(
+    api_key="ck_live_<su-clave>",
+    base_url="https://compliance.cerberus.cl/v1",  # valor por defecto
+    timeout=30.0,                                   # segundos; valor por defecto
+)
 ```
 
-The default base URL is `https://compliance.cerberus.cl/v1`. The API-key
-resolution order is: `api_key=` argument → `CERBERUS_API_KEY` env var →
-`ValueError` at construction time. See [`docs/auth.md`](./docs/auth.md) for
-rotation and secret-hygiene guidance.
+Parámetros del constructor (todos los de transporte son por palabra clave):
 
-## Resources at a glance
+- `api_key: str | None = None` — se resuelve según el orden anterior.
+- `base_url: str | None = None` — por defecto `https://compliance.cerberus.cl/v1`; se elimina la barra final.
+- `timeout: float = 30.0` — segundos.
+- `retry: RetryConfig | None = None` — por defecto `RetryConfig()` (véase «Manejo de errores»).
+- `logger: logging.Logger | None = None` — por defecto el logger `cerberus_compliance`.
+- `http_client` — cliente HTTP del paquete cliente, inyectable (la variante asíncrona acepta su contraparte asíncrona); cuando es `None`, el SDK construye el suyo.
 
-Every resource has a sync (`client.<resource>`) and async
-(`async_client.<resource>`) mirror; only the `await` differs.
-
-| Resource                     | Endpoint(s)                                                          | Key methods                                                                   |
-|------------------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| `client.kyb`                 | `GET /kyb/{rut}`                                                     | `get(rut, *, as_of=None, include=[...])`                                      |
-| `client.entities`            | `/entities`, `/entities/{id}`, `/entities/by-rut/{rut}`              | `list`, `get`, `by_rut`, `ownership`, `directors`, `sanctions`, `iter_all`    |
-| `client.sanctions`           | `/sanctions`, `/sanctions/{id}`                                      | `list(*, target_id, source, active, limit)`, `get`, `iter_all`                |
-| `client.regulations`         | `/regulations`, `/regulations/search`                                | `list(*, entity_id, framework, limit)`, `get`, `search(q, **params)`, `iter_all` |
-| `client.rpsf`                | `/rpsf`, `/rpsf/by-entity/{id}`, `/rpsf/by-servicio/{s}`             | `list(**filters)`, `get`, `by_entity`, `by_servicio`, `iter_all`              |
-| `client.normativa`           | `/normativa`, `/normativa/{id}/mercado`                              | `list(**filters)`, `get`, `mercado`, `iter_all`                               |
-| `client.normativa_consulta`  | `/normativa-consulta?estado=abierta\|cerrada` (v0.3.0)               | `list(estado, limit, offset)`                                                 |
-| `client.indicadores`         | `/indicadores/{name}` — UF/UTM/USD/EUR/IPC/TMC (v0.3.0)              | `get(name, date=None)`, `history(name, from_, to)`                            |
-| `client.persons`             | `/persons/{rut}/regulatory-profile`                                  | `regulatory_profile(rut)`                                                     |
-| `client.resoluciones`        | `/resoluciones`, `/resoluciones/{id}` (v0.4.0)                       | `list(**filters)`, `get`, `iter_all`                                          |
-| `client.opas`                | `/opas`, `/opas/{id}` (v0.4.0)                                       | `list(**filters)`, `get`, `iter_all`                                          |
-| `client.tdc`                 | `/tdc`, `/tdc/{id}` (v0.4.0)                                         | `list(**filters)`, `get`, `iter_all`                                          |
-| `client.art12`               | `/art12`, `/art12/{id}` (v0.4.0)                                     | `list(**filters)`, `get`, `iter_all`                                          |
-| `client.art20`               | `/art20`, `/art20/{id}` (v0.4.0)                                     | `list(**filters)`, `get`, `iter_all`                                          |
-| `client.comunicaciones`      | `/comunicaciones`, `/comunicaciones/{id}` (v0.4.0)                   | `list(**filters)`, `get`, `iter_all`                                          |
-| `client.dictamenes`          | `/dictamenes`, `/dictamenes/{id}` (v0.4.0)                           | `list(**filters)`, `get`, `iter_all`                                          |
-| `client.esg`                 | `/esg/{rut}` — NCG 461 sustainability disclosures (v0.4.0)           | `get(rut)`, `list(**filters)`, `iter_all`                                     |
-| `client.normativa_historic`  | `/normativa/historic`, `/normativa/historic/{id}` (v0.4.0)           | `list(**filters)`, `get`, `iter_all`                                          |
-| `client.search`              | `POST /search` — universal CMF semantic search (v0.4.0)              | `search(query, filters=None, top_k=10)` → `SearchResponse`                   |
-
-## Universal CMF semantic search
-
-v0.4.0 adds universal CMF semantic search via `POST /search` and nine new
-resources covering resoluciones, OPAs, TDC, Art.12/20, comunicaciones,
-dictámenes, ESG (NCG 461), and historic normativa. The search endpoint is
-backed by Qdrant vector search and AWS Bedrock Titan Embeddings — a free-text
-query is embedded server-side and matched against the full CMF document corpus.
+### Cliente asíncrono
 
 ```python
-from cerberus_compliance import CerberusClient
-from cerberus_compliance.resources.search import SearchFilters
-
-with CerberusClient() as client:
-    # Search across all document types
-    results = client.search.search(
-        query="NCG 461 sostenibilidad emisores",
-        top_k=5,
-    )
-    for hit in results.hits:
-        print(f"[{hit.doc_type}] {hit.score:.3f}  {hit.title}")
-
-    # Narrow to specific document types and date range
-    results = client.search.search(
-        query="cambio de control sociedad anónima abierta",
-        filters=SearchFilters(
-            doc_types=["art20", "resoluciones"],
-            from_date="2024-01-01",
-            to_date="2024-12-31",
-        ),
-        top_k=10,
-    )
-```
-
-The `SearchFilters` Pydantic model accepts:
-
-- `doc_types: list[str] | None` — restrict to specific document types.
-- `from_date: str | None` — ISO 8601 date lower bound (`YYYY-MM-DD`).
-- `to_date: str | None` — ISO 8601 date upper bound.
-- `entity_rut: str | None` — restrict to documents related to a specific RUT.
-
-Two quick examples (drop in an API key and run):
-
-```python
-# Sync.
-from cerberus_compliance import CerberusClient
-
-with CerberusClient() as client:
-    profile = client.kyb.get("96.505.760-9", include=["directors", "lei", "sanctions"])
-    print(profile["legal_name"], "| risk", profile["risk_score"])
-```
-
-```python
-# Async.
 import asyncio
 from cerberus_compliance import AsyncCerberusClient
 
 async def main() -> None:
     async with AsyncCerberusClient() as client:
-        profile = await client.kyb.get("96.505.760-9", include=["directors"])
-        print(profile["legal_name"], "| risk", profile["risk_score"])
+        perfil = await client.kyb.get("76.123.456-7")
+        print(perfil)
 
 asyncio.run(main())
 ```
 
-## Flagship: KYB Express
+---
 
-`client.kyb.get(rut, *, as_of=..., include=[...])` is a single round-trip
-against `GET /v1/kyb/{rut}` that returns a consolidated entity dossier —
-the right default for dashboards, analyst views, and KYB gating flows.
+## Inicio rápido
+
+Síncrono:
+
+```python
+from cerberus_compliance import CerberusClient
+
+with CerberusClient() as client:
+    perfil = client.kyb.get("76.123.456-7")
+    print(perfil)
+```
+
+Asíncrono:
+
+```python
+import asyncio
+from cerberus_compliance import AsyncCerberusClient
+
+async def main() -> None:
+    async with AsyncCerberusClient() as client:
+        perfil = await client.kyb.get("76.123.456-7")
+        print(perfil)
+
+asyncio.run(main())
+```
+
+---
+
+## KYB Express (endpoint estrella)
+
+`client.kyb.get(rut, *, as_of=None, include=None)` devuelve el perfil consolidado de una empresa chilena —identidad, directorio vigente, sanciones, identificador LEI, cadena de propiedad, eventos materiales recientes y un puntaje de riesgo determinista de 0 a 100— en una sola llamada.
 
 ```python
 from datetime import date
 from cerberus_compliance import CerberusClient
 
 with CerberusClient() as client:
-    profile = client.kyb.get(
-        "96.505.760-9",                  # Falabella SA
-        as_of=date(2026, 4, 1),          # point-in-time snapshot
-        include=["directors", "lei", "sanctions"],
+    perfil = client.kyb.get(
+        "76.123.456-7",
+        as_of=date(2025, 12, 31),           # datetime.date; estado del perfil a una fecha dada (opcional)
+        include=["directors", "lei", "sanctions"], # secciones a incluir (opcional)
     )
 ```
 
-A real response against prod (trimmed):
+- `as_of` reconstruye el perfil tal como se conocía a la fecha indicada; acepta un `datetime.date` (se serializa en el protocolo como ISO-8601 `YYYY-MM-DD`), no una cadena. Si se omite, devuelve el estado más reciente.
+- `include` permite acotar las secciones del documento que desea recibir.
+
+Respuesta ilustrativa (los valores son **ilustrativos**; el RUT y la razón social corresponden a una empresa de ejemplo, no a una entidad real):
 
 ```jsonc
 {
-  "rut": "96.505.760-9",
-  "rut_canonical": "96505760-9",
-  "legal_name": "Falabella SA",
-  "fantasy_name": "Falabella",
+  "rut": "76.123.456-7",
+  "rut_canonical": "76123456-7",
+  "legal_name": "Empresa de Ejemplo S.A.",     // razón social ilustrativa
+  "fantasy_name": "Ejemplo",
   "entity_kind": "sociedad_anonima_abierta",
   "status": "activo",
-  "inscription_date": "1937-06-04",
-  "lei": "5493002Q8WJ1QCQ5V912",
-  "risk_score": 0,
+  "inscription_date": "1990-01-01",
+  "lei": "5493000IBP32UQZ0KL24",               // identificador LEI ilustrativo
+  "risk_score": 0,                             // puntaje determinista 0–100 (ilustrativo)
   "risk_factors": [],
   "directors_current": [
-    {
-      "persona_rut": "11.111.111-1",
-      "nombre": "Carlos Heller Solari",
-      "cargo": "presidente",
-      "fecha_inicio": "2020-01-01"
-    }
-    // ... 2 more
+    { "persona_rut": "12.345.678-9", "nombre": "Persona de Ejemplo", "cargo": "presidente", "fecha_inicio": "2020-01-01" }
+    // ...
   ],
-  "sanctions": {
+  "sanctions": {                               // resumen; el detalle se obtiene con client.sanctions
     "active_count": 0,
     "historical_count": 0,
     "last_sanction_at": null,
@@ -207,125 +190,272 @@ A real response against prod (trimmed):
   },
   "rpsf_inscriptions": [],
   "recent_material_events": [
-    {
-      "id": "ba0bf3fe-f2e8-4e48-b2b6-56038dfaa193",
-      "publicacion_at": "2026-04-04T00:00:00Z",
-      "asunto": "Hecho esencial — cambio gerente general rutinario"
-    }
+    { "id": "00000000-0000-0000-0000-000000000000", "publicacion_at": "2025-11-20T00:00:00Z", "asunto": "Hecho esencial de ejemplo" }
   ],
   "ownership_chain": { /* ... */ },
-  "as_of": "2026-04-24",
+  "as_of": "2025-12-31",
   "request_id": "req_...",
   "cache_status": "live"
 }
 ```
 
-Notes:
+> Nota: en KYB Express, la sección `sanctions` es un **resumen** (conteo de sanciones activas e históricas). Para el detalle completo de sanciones de una entidad, utilice `client.sanctions` o `client.entities.sanctions(id_)`.
 
-- `as_of` is serialised as an ISO-8601 date (`YYYY-MM-DD`). `None` asks the
-  server for the live view.
-- `include` preserves caller order on the wire; requested fields are
-  guaranteed to be present (even when empty).
-- `sanctions` in the KYB response is a *summary* object. To retrieve the
-  full sanction records, use `client.entities.sanctions(entity_id)` (which
-  hits `/v1/sanctions/by-entity/{id}`), or iterate `client.sanctions`.
-- See [`examples/kyb_quickstart.py`](./examples/kyb_quickstart.py) for a
-  full CLI that renders this payload with `rich`.
+---
 
-## Authentication, tiers, scopes, rate limits
+## Recursos tipados
 
-- **Bearer token.** Every request carries `Authorization: Bearer <api_key>`
-  plus `User-Agent: cerberus-compliance/<version>`.
-- **Tiers.** `starter`, `professional`, `enterprise`. KYB, RPSF, normativa,
-  and regulations search require at least `professional`. Webhooks require
-  `enterprise`. Tier and scopes are surfaced by `GET /v1/keys/me` (also
-  visible on the developer portal).
-- **Scopes.** Key-level ACLs: `kyb:read`, `entities:read`, `sanctions:read`,
-  `rpsf:read`, `regulations:read`, `normativa:read`, `persons:read`.
-  Missing-scope calls return `403 Forbidden` as `AuthError`.
-- **Rate limits.** Default `120 req/min` per key; bursts up to `240`.
-  `429 Too Many Requests` responses carry a `Retry-After` header the SDK
-  parses automatically into `RateLimitError.retry_after` (seconds).
+Cada recurso se expone como un atributo del cliente (`client.<attr>`). Los recursos que listan colecciones ofrecen además `iter_all(**filters)` para recorrer todas las páginas automáticamente (véase «Paginación por cursor»).
 
-See [`docs/auth.md`](./docs/auth.md) for key rotation, staging keys, and
-client-side rate-limiting patterns.
+### Entidades y personas
 
-## Error handling
+| Recurso | Endpoints | Métodos clave | Propósito |
+|---|---|---|---|
+| `client.entities` | `GET /entities`, `/entities/{id}`, `/entities/by-rut/{rut}`, `/entities/{id}/ownership`, `/entities/{id}/material-events`, `/entities/{id}/directors`, `/entities/{id}/regulations`, `/entities/{id}/diff`, `/sanctions/by-entity/{id}`, `/bancos/{rut}/fichas*` | `list(*, rut=None, limit=None)`, `get(id_)`, `by_rut(rut)`, `ownership(id_)`, `material_events(id_)`, `sanctions(id_)`, `directors(id_)`, `regulations(id_)`, `diff(entity_id, *, from_, to=None)`, `bancos_fichas(rut, *, year=None, month=None)`, `bancos_fichas_latest_per_section(rut)`, `bancos_fichas_latest(rut)`, `bancos_fichas_period(rut, fiscal_year, fiscal_month)` | Empresas y personas jurídicas chilenas (sociedades, fundaciones, bancos) por RUT, con propiedad, directorio, hechos esenciales y fichas bancarias. |
+| `client.kyb` | `GET /kyb/{rut}` | `get(rut, *, as_of=None, include=None)` | Perfil KYB agregado de una empresa en un solo documento. |
+| `client.persons` | `GET /persons`, `/persons/{rut}/regulatory-profile` | `list(*, pep=None, cargo=None, entity_kind=None, cursor=None, limit=None)`, `regulatory_profile(id_)` | Personas naturales con estado PEP, cargos y perfil de riesgo de cumplimiento. |
+| `client.resolve` | `GET /resolve` | `resolve(*, query=None, rut=None, name=None)` | Resuelve texto libre, RUT o nombre a la entidad o persona canónica, con score de confianza. |
 
-Every non-2xx response raises a subclass of `CerberusAPIError`. Each
-exception carries:
+> `client.persons.get(id_)` está obsoleto: emite `DeprecationWarning` y lanza `NotImplementedError` (el endpoint nunca existió).
 
-- `.status` — HTTP status code.
-- `.problem` — the parsed RFC 7807 body as a `dict`.
-- `.request_id` — the `X-Request-Id` header (include it in support tickets).
-- `.title`, `.detail`, `.type`, `.instance` — RFC 7807 convenience
-  properties, with safe fallbacks when the server omits a field.
+### Sanciones y normativa
+
+| Recurso | Endpoints | Métodos clave | Propósito |
+|---|---|---|---|
+| `client.sanctions` | `GET /sanctions`, `/sanctions/{id}`, `/sanctions/cross-reference` | `list(*, target_id=None, source=None, active=None, limit=None)`, `get(id_)`, `cross_reference(*, rut=None, name=None, threshold=0.92, limit=50)` | Sanciones de OFAC, ONU, UE y CMF, con cruce difuso por RUT o nombre. |
+| `client.regulations` | `GET /regulations`, `/regulations/{id}`, `/regulations/search` | `list(*, entity_id=None, framework=None, limit=None)`, `get(id_)`, `search(q, **params)` | Aplicabilidad regulatoria: qué marco normativo aplica a cada entidad y con qué estado. |
+| `client.normativa` | `GET /normativa`, `/normativa/{id}`, `/normativa/{id}/mercado` | `list(**params)`, `get(id_)`, `mercado(id_)` | Textos regulatorios autoritativos con cita, resumen y mercado de aplicación. |
+| `client.normativa_historic` | `GET /normativa/historic` | `list(**params)` | Historial de versiones punto-en-el-tiempo de los textos regulatorios de la CMF. |
+| `client.normativa_consulta` | `GET /normativa-consulta` | `list(estado='abierta', limit=100, offset=0)` | Consultas públicas de normativa de la CMF (proyectos en trámite) como señal anticipada de obligaciones futuras. |
+
+### Registros regulatorios de la CMF
+
+| Recurso | Endpoints | Métodos clave | Propósito |
+|---|---|---|---|
+| `client.resoluciones` | `GET /resoluciones` | `list(**params)` | Resoluciones formales de la CMF (actos administrativos numerados). |
+| `client.opas` | `GET /opas` | `list(**params)` | Ofertas Públicas de Adquisición (OPAs) reguladas por la CMF. |
+| `client.tdc` | `GET /tdc` | `list(**params)` | Tasas de Descuento de Cartera (TDC) para valorización de carteras. |
+| `client.art12` | `GET /art12` | `list(**params)` | Declaraciones del Art. 12 de la Ley 18.045 (participaciones significativas, 5%+). |
+| `client.art20` | `GET /art20` | `list(**params)` | Hechos esenciales del Art. 20 de la Ley 18.045 (eventos corporativos materiales). |
+| `client.comunicaciones` | `GET /comunicaciones` | `list(**params)` | Comunicaciones oficiales de la CMF (circulares, oficios y avisos numerados). |
+| `client.dictamenes` | `GET /dictamenes` | `list(**params)` | Dictámenes (pronunciamientos legales formales) emitidos por la CMF. |
+
+> En los recursos `resoluciones`, `opas`, `tdc`, `art12`, `art20`, `comunicaciones`, `dictamenes` y `normativa_historic`, el método `get(id_)` está obsoleto y lanza `NotImplementedError`: utilice `list(...)` con paginación.
+
+### RPSF, ESG, indicadores y mercado
+
+| Recurso | Endpoints | Métodos clave | Propósito |
+|---|---|---|---|
+| `client.rpsf` | `GET /rpsf`, `/rpsf/{id}`, `/rpsf/by-entity/{entity_id}`, `/rpsf/by-servicio/{servicio}` | `list(**params)`, `get(id_)`, `by_entity(id_)`, `by_servicio(servicio)` | Registro Público de Servicios Financieros (Ley 21.521): prestadores autorizados, servicios y estado de inscripción. |
+| `client.esg` | `GET /esg/{rut}`, `/esg`, `/esg/rankings` | `get(rut)`, `list(**params)`, `rankings(*, indicator, year, top_n=20, direction='desc', industry=None)` | Perfil ambiental, social y de gobernanza (ESG) según la NCG 461, con rankings por indicador. |
+| `client.sasb_topics` | `GET /sasb-topics` | `list(*, industry=None, limit=None, offset=None)`, `iter_all(*, industry=None)` | Catálogo de referencia de temas de divulgación SASB por industria. |
+| `client.indicadores` | `GET /indicadores/{name}`, `/indicadores/{name}?from=&to=` | `get(name, date=None)`, `history(name, from_, to)` | Indicadores monetarios, de inflación y macroeconómicos (UF, UTM, USD, EUR, IPC, TMC, TPM, IMACEC, PIB...) como valores exactos en string. |
+| `client.equity` | `GET /equity/{ticker}/prices` | `prices(ticker, *, from_=None, to=None)` | Series de precios bursátiles OHLCV de tickers chilenos e internacionales. |
+
+### Operación y plataforma
+
+| Recurso | Endpoints | Métodos clave | Propósito |
+|---|---|---|---|
+| `client.search` | `POST /search` | `search(*, query, filters=None, top_k=10)` | Búsqueda semántica universal sobre todo el corpus documental de la CMF (véase «Búsqueda semántica»). |
+| `client.exports` | `POST /exports/{resource}`, `GET /exports/{export_id}`, `DELETE /exports/{export_id}`, `GET /exports` | `create(resource, *, format='csv', filters=None, fields=None)`, `get(export_id)`, `delete(export_id)`, `list(*, limit=50)`, `wait(export_id, *, poll_interval=2.0, timeout=120.0)` | Exportación masiva de cualquier familia de recursos a CSV o Parquet mediante una cola de trabajos con URL de descarga firmada. |
+| `client.webhooks` | `POST /webhooks`, `GET /webhooks`, `GET /webhooks/{id}`, `PATCH /webhooks/{id}`, `DELETE /webhooks/{id}`, `GET /webhooks/{id}/deliveries`, `POST /webhooks/{id}/test` | `create(*, callback_url, event_types, description=None)`, `list()`, `get(webhook_id)`, `update(...)`, `delete(webhook_id)`, `deliveries(webhook_id, *, limit=50)`, `test(webhook_id)`, `verify_signature(...)` | Suscripciones a eventos de la plataforma con ciclo de vida completo y verificación de firma sin conexión (véase «Webhooks»). |
+| `client.admin_api_keys` | `GET /admin/api-keys/me` | `me()` | Metadatos no secretos de la API key en uso: prefijo, entorno, tier, scopes, expiración y cuota mensual/diaria. |
+
+---
+
+## Búsqueda semántica
+
+`client.search.search(...)` realiza una **búsqueda semántica sobre el corpus documental de la CMF** (resoluciones, OPAs, TDC, Art. 12 y Art. 20, comunicaciones, dictámenes, ESG, normativa y hechos esenciales) a partir de una consulta en lenguaje natural, y devuelve un `SearchResponse` con resultados rankeados.
 
 ```python
-from cerberus_compliance import (
-    CerberusClient,
-    AuthError,         # 401 / 403 — bad key, missing scope
-    NotFoundError,     # 404 — unknown entity / sanction / normativa id
-    ValidationError,   # 422 — bad RUT, bad query params, has .errors list
-    QuotaError,        # 402 — tier quota exhausted
-    RateLimitError,    # 429 — carries .retry_after (seconds)
-    ServerError,       # 5xx — retried automatically by default
-    CerberusAPIError,  # parent; catch-all
-)
+from cerberus_compliance import CerberusClient
+from cerberus_compliance.resources.search import SearchFilters, SearchDateRange
+# (también importables desde el top-level: from cerberus_compliance import SearchFilters, SearchDateRange)
 
-client = CerberusClient()
-try:
-    profile = client.kyb.get("00.000.000-0")
-except NotFoundError as exc:
-    print(f"no entity: {exc.detail} [request_id={exc.request_id}]")
-except ValidationError as exc:
-    for field_err in exc.errors:
-        print(f"bad field: {field_err}")
-except RateLimitError as exc:
-    print(f"slow down: retry after {exc.retry_after:.1f}s")
-except AuthError:
-    raise  # bad key — no point retrying
-except CerberusAPIError as exc:
-    print(f"api error: {exc.status} {exc.title}")
+with CerberusClient() as client:
+    respuesta = client.search.search(
+        query="cambios de control en bancos durante 2025",
+        filters=SearchFilters(
+            tipo_documento=["hecho_esencial"],
+            marco_regulatorio=["Ley 18.045"],
+            tipo_entidad_target=["banco"],
+            materias=["cambio de control"],
+            entity_rut="76.123.456-7",
+            date_range=SearchDateRange(from_="2025-01-01", to="2025-12-31"),
+        ),
+        top_k=10,
+    )
+
+    print(respuesta.total_searched)        # número de documentos evaluados para esta consulta
+    for hit in respuesta.hits:
+        print(hit.score, hit.tipo_documento, hit.entity_rut)
+        print(hit.payload)                 # contenido del documento coincidente
 ```
 
-Transient failures (`429`, `500`, `502`, `503`, `504`, and transport errors)
-are retried automatically with exponential backoff + jitter. Tune the
-policy per client:
+Modelos (`cerberus_compliance.resources.search`, también importables desde `cerberus_compliance`):
+
+- **`SearchFilters`** — todos los campos son opcionales: `tipo_documento`, `marco_regulatorio`, `tipo_entidad_target`, `materias` (listas de cadenas), `entity_rut` (cadena) y `date_range`.
+- **`SearchDateRange`** — `from_` (se serializa al campo de protocolo `from`) y `to`; aceptan `str` o `date`.
+- **`SearchHit`** — `score`, `source_table` (colección de origen del documento), `source_row_id` (identificador único del documento de origen, UUID), `tipo_documento`, `marco_regulatorio`, `tipo_entidad_target`, `materias`, `entity_rut`, `publicacion_at` y `payload` (contenido del documento coincidente).
+- **`SearchResponse`** — `query`, `hits` (lista de `SearchHit`) y `total_searched` (número de documentos evaluados para esta consulta).
+
+El rango recomendado de `top_k` es de 1 a 40.
+
+---
+
+## Superficie adicional de la API (roadmap de tipado)
+
+La API de producción expone hoy más capacidades que las cubiertas por recursos tipados. Todas ellas son accesibles **ahora mismo** mediante el transporte de bajo nivel `client._request(method, path, ...)`, que devuelve el cuerpo de respuesta ya deserializado y aplica la misma autenticación, reintentos y manejo de errores que los recursos tipados. Los recursos tipados correspondientes están en el roadmap; hasta entonces, esta es la vía honesta de consumo.
+
+Capacidades disponibles hoy por esta vía:
+
+- **Grafo de conocimiento**: red ego alrededor de un RUT, caminos entre dos RUT, métricas de centralidad y su distribución (co-direcciones, propiedad y grupos económicos).
+- **Copiloto regulatorio (RAG)**: respuestas fundamentadas con citas verificadas a la fuente, o rechazo honesto cuando no hay sustento (política «cite-or-refuse»).
+- **Evaluación de exposición (screening)**: exposición de una entidad frente a listas de sanciones, incluida la exposición por contagio en la red, y su distribución agregada.
+- **Estados financieros (IFRS)**: estados financieros con ratios, indicadores de distress, benchmarking sectorial y series temporales (bajo rutas `/entities/{rut}/financials`, `/ratios`, `/distress`, `/benchmark` y `/timeseries`).
+- **Clasificaciones de riesgo (ratings)**: clasificaciones oficiales, su línea de tiempo por agencia, distribución del mercado y matrices de migración (bajo rutas `/entities/{rut}/ratings`, `/ratings-timeline`, `/ratings/distribution` y `/migration`).
+- **Red de personas con información privilegiada (insiders)**: perfil de red de una persona con información privilegiada por RUT o nombre, con su actividad de transacciones de personas relacionadas y sus vínculos.
+- **Fondos, grupos y bancos**: fondos con sus métricas, grupos empresariales por RUT, fichas prudenciales de bancos e indicadores bancarios.
+- **Renta variable / IPSA (equity)**: panel de riesgo del IPSA, riesgo por instrumento y estudios de evento de mercado.
+- **Indicadores con proyección a futuro**, **listas de seguimiento (watchlist)**, capa de amplitud del registro de personas jurídicas y demás registros regulatorios complementarios.
+
+```python
+from cerberus_compliance import CerberusClient
+
+with CerberusClient() as client:
+    # Grafo de conocimiento: red ego alrededor de un RUT.
+    # (base_url ya incluye /v1; la ruta es GET /v1/graph/{rut})
+    ego = client._request("GET", "/graph/76.123.456-7")
+
+    # Copiloto regulatorio (RAG): respuesta fundamentada con citas.
+    # Endpoint autenticado: POST /v1/copilot/ask (scope copilot:read).
+    respuesta = client._request(
+        "POST",
+        "/copilot/ask",
+        json={"question": "¿Qué exige la NCG 461 en materia de gobernanza?"},
+    )
+```
+
+> El copiloto se invoca con su clave `ck_live_...`. `/copilot/ask` (scope `copilot:read`) opera sobre todo el corpus indexado; existe además `/copilot/ask-public` (scope `regulations:read`), acotado al corpus de normativa pública.
+
+> Honestidad: estas superficies aún **no** disponen de recurso tipado. La firma exacta de cada ruta y de su cuerpo de solicitud es la publicada en la especificación OpenAPI (véase «Enlaces»). A medida que se tipifiquen, se expondrán como `client.<recurso>` y se documentarán aquí.
+
+---
+
+## Autenticación, planes, límites y cuotas
+
+La autenticación es por cabecera Bearer, inyectada en cada petición:
+
+```
+Authorization: Bearer ck_live_<su-clave>
+```
+
+La clave es una cadena opaca, no vacía; existen entornos `live` y `test`. El SDK la envía tal cual, sin modificarla.
+
+Los planes son cualitativos y se asignan al emitir su clave:
+
+| Plan | Orientación |
+|---|---|
+| `free` | Plan de evaluación con límites de tasa conservadores y cuota diaria/mensual reducida, para pruebas iniciales. |
+| `starter` | Plan de entrada con mayor tasa por segundo y cuotas adecuadas para integraciones pequeñas en producción. |
+| `professional` | Plan de uso intensivo con tasa por segundo elevada y cuotas amplias para cargas de producción sostenidas. |
+| `enterprise` | Plan corporativo con la tasa por segundo más alta y volumen sin tope práctico, para integraciones a gran escala. |
+
+Cada plan combina un **límite de tasa** (peticiones por segundo) con una **cuota** (consumo diario y mensual). Los límites vigentes de su clave se consultan en línea, sin exponer la clave secreta:
+
+```python
+with CerberusClient() as client:
+    meta = client.admin_api_keys.me()   # GET /v1/admin/api-keys/me
+    print(meta)  # prefijo, entorno, tier, scopes, expiración y cuota restante
+```
+
+Los mismos límites y su consumo están visibles en el portal autenticado. Para una cuota superior, escríbanos por la vía descrita en «Modelo de acceso».
+
+---
+
+## Manejo de errores
+
+Toda respuesta no exitosa se traduce a una excepción de la jerarquía `CerberusAPIError`. La clase base es una `dataclass` que transporta:
+
+- `.status: int` — código HTTP.
+- `.problem: dict` — cuerpo RFC 7807 (`application/problem+json`) ya deserializado.
+- `.request_id: str | None` — del encabezado `X-Request-Id`.
+- Propiedades `.title`, `.detail`, `.type`, `.instance` derivadas de `problem` (con respaldo en la frase de estado HTTP cuando faltan).
+
+| Excepción | Estado | Cuándo |
+|---|---|---|
+| `CerberusAPIError` | cualquier no-2xx | Clase base; también el respaldo para estados no mapeados que no sean 5xx. |
+| `AuthError` | 401, 403 | No autorizado o prohibido. |
+| `QuotaError` | 402 | Cuota agotada. |
+| `NotFoundError` | 404 | Recurso inexistente (lo distingue de fallos de autenticación o transitorios). |
+| `ValidationError` | 422 | Entidad no procesable. Propiedad extra `.errors` (lista de detalles de validación). |
+| `RateLimitError` | 429 | Demasiadas peticiones. Campo extra `.retry_after: float | None` (segundos), tomado del encabezado `Retry-After`. |
+| `ServerError` | 5xx (500–599) | Cualquier error de servidor. |
+
+```python
+from cerberus_compliance import CerberusClient
+from cerberus_compliance.errors import (
+    CerberusAPIError,
+    AuthError,
+    QuotaError,
+    NotFoundError,
+    ValidationError,
+    RateLimitError,
+    ServerError,
+)
+
+with CerberusClient() as client:
+    try:
+        perfil = client.kyb.get("76.123.456-7")
+    except NotFoundError:
+        perfil = None
+    except RateLimitError as exc:
+        print(f"Reintente en {exc.retry_after} s")
+        raise
+    except AuthError as exc:
+        print(f"Credencial inválida: {exc.title} (request_id={exc.request_id})")
+        raise
+    except CerberusAPIError as exc:
+        print(f"Error {exc.status}: {exc.detail}")
+        raise
+```
+
+### Reintentos automáticos
+
+El cliente reintenta de forma automática los fallos transitorios. La política se controla con `RetryConfig`, una `dataclass` inmutable que valida sus campos en construcción:
 
 ```python
 from cerberus_compliance import CerberusClient
 from cerberus_compliance.retry import RetryConfig
 
-client = CerberusClient(retry=RetryConfig(max_attempts=5, base_delay_ms=500))
+client = CerberusClient(
+    retry=RetryConfig(
+        max_attempts=3,                          # presupuesto total de intentos (>=1; 1 = sin reintentos)
+        base_delay_ms=200,                       # retardo del primer reintento, en ms
+        max_delay_ms=10_000,                     # techo por espera individual, en ms
+        retry_on=(429, 500, 502, 503, 504),      # estados que se reintentan
+        jitter=True,                             # jitter aleatorio sobre el backoff exponencial
+    )
+)
 ```
 
-See [`examples/error_handling.py`](./examples/error_handling.py) for a
-runnable walk-through of every exception, and
-[`docs/errors.md`](./docs/errors.md) for the full RFC 7807 recipe sheet.
+Se reintentan los estados `429`, `500`, `502`, `503` y `504`, así como los errores de transporte de red (tratados como un `503` sintético para la decisión de reintento). El backoff es exponencial con jitter; cuando hay un encabezado `Retry-After` numérico, este tiene prioridad sobre el cálculo exponencial. Agotados los reintentos, propaga la excepción correspondiente.
 
-## Cursor pagination
+---
 
-All list endpoints return a cursor envelope:
+## Paginación por cursor
 
-```jsonc
-{ "items": [ /* ... */ ], "next_cursor": "<opaque-token>" | null, "limit": 50 }
-```
+Los recursos de colección exponen `iter_all(**filters)`, que recorre todas las páginas hacia adelante y entrega las filas una a una. En la variante síncrona es un generador (`Iterator[dict]`); en la asíncrona, un generador asíncrono (`AsyncIterator[dict]`).
 
-Every listable resource exposes an `iter_all(**filters)` helper that chases
-`next_cursor` lazily — a plain Python generator (sync) or async generator
-(async), so you never hold a full result set in memory:
+El SDK normaliza de forma transparente la estructura de respuesta, leyendo tanto la forma `{ "items": [...], "next_cursor": "...", "limit": N }` como la forma `{ "data": [...], "next": "..." }`. La iteración se detiene cuando no hay cursor siguiente.
 
 ```python
-from itertools import islice
 from cerberus_compliance import CerberusClient
 
 with CerberusClient() as client:
-    # First 20 sanctions matching a source filter.
-    first_20 = list(islice(client.sanctions.iter_all(source="CMF"), 20))
+    for empresa in client.entities.iter_all(rut="76.123.456-7"):
+        print(empresa["id"])
 ```
-
-Async usage:
 
 ```python
 import asyncio
@@ -333,110 +463,117 @@ from cerberus_compliance import AsyncCerberusClient
 
 async def main() -> None:
     async with AsyncCerberusClient() as client:
-        count = 0
-        async for record in client.rpsf.iter_all(is_active=True):
-            count += 1
-            if count >= 50:
-                break
+        async for sancion in client.sanctions.iter_all(active=True):
+            print(sancion["id"])
 
 asyncio.run(main())
 ```
 
-See [`examples/cursor_pagination.py`](./examples/cursor_pagination.py) for
-three idioms (list, `islice`, streaming) and
-[`docs/pagination.md`](./docs/pagination.md) for the manual-loop pattern.
+---
 
-## Examples
+## Webhooks
 
-Every example below is runnable against prod with
-`CERBERUS_API_KEY=<your-key> python examples/<name>.py`.
+Suscríbase a eventos de la plataforma y verifique cada entrega **sin conexión**. El secreto de firma se entrega en texto plano una sola vez, al crear el webhook.
 
-| File                                                                       | What it shows                                                            |
-|----------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| [`kyb_quickstart.py`](./examples/kyb_quickstart.py)                        | Flagship: `client.kyb.get(...)` with `as_of` + `include`; `rich` render. |
-| [`entities_lookup.py`](./examples/entities_lookup.py)                      | `entities.by_rut` → `get` → `directors` / `ownership` / `sanctions`.     |
-| [`sanctions_browse.py`](./examples/sanctions_browse.py)                    | `sanctions.list` + detail + per-entity via `entities.sanctions`.         |
-| [`regulations_search.py`](./examples/regulations_search.py)                | `regulations.list`, `get`, `search(q="sanciones")`.                      |
-| [`rpsf_explore.py`](./examples/rpsf_explore.py)                            | `rpsf.list`, `by_entity`, `by_servicio("plataforma_financiamiento_colectivo")`. |
-| [`normativa_explore.py`](./examples/normativa_explore.py)                  | `normativa.list`, `get`, `mercado(id)`.                                  |
-| [`normativa_consulta_basic.py`](./examples/normativa_consulta_basic.py)    | `normativa_consulta.list(estado=...)` + per-mercado rollup (v0.3.0).     |
-| [`indicadores_basic.py`](./examples/indicadores_basic.py)                  | `indicadores.get("UF")`, `.get("USD", date=...)`, `.history(...)` (v0.3.0). |
-| [`persons_profile.py`](./examples/persons_profile.py)                      | `persons.regulatory_profile("11.111.111-1")` (Carlos Heller — PEP-lite).|
-| [`async_concurrent_lookups.py`](./examples/async_concurrent_lookups.py)    | `asyncio.gather` over a 5-RUT portfolio with `AsyncCerberusClient`.      |
-| [`error_handling.py`](./examples/error_handling.py)                        | Each exception in the hierarchy with a real trigger.                     |
-| [`cursor_pagination.py`](./examples/cursor_pagination.py)                  | `iter_all` — list, `islice(..., N)`, streaming loop.                     |
-| [`monitor_portfolio.py`](./examples/monitor_portfolio.py)                  | Async polling CSV → `kyb.get` diff of new `recent_material_events`.      |
-| [`webhook_handler.py`](./examples/webhook_handler.py)                      | FastAPI receiver with HMAC-SHA256 signature + replay protection.         |
-| [`notebooks/01-kyb-quickstart.ipynb`](./examples/notebooks/01-kyb-quickstart.ipynb) | Narrated Jupyter quickstart for analysts.                        |
+```python
+from cerberus_compliance import CerberusClient
 
-## Breaking changes in v0.3.0
+with CerberusClient() as client:
+    wh = client.webhooks.create(
+        callback_url="https://su-sistema.example.cl/cerberus/webhook",
+        event_types=["hecho_esencial.new", "sancion.new"],
+        description="Alertas de hechos esenciales y sanciones",
+    )
+    secreto = wh["secret"]  # guárdelo de forma segura: se muestra una sola vez
+```
 
-The `client.registries` and `client.material_events` shims — deprecated
-in v0.2.0 and scheduled for removal — are **gone** as of v0.3.0. Their
-methods already raised `NotImplementedError`, so the runtime-breaking
-impact is limited to importers that referenced the classes themselves:
+Verificación sin conexión de una entrega entrante (HMAC-SHA256 sobre el encabezado `X-Cerberus-Signature`, con formato `t=<unix_ts>,v1=<hex_hmac>`):
 
-| Removed                                                        | Migrate to                                                                 |
-|----------------------------------------------------------------|----------------------------------------------------------------------------|
-| `client.registries.list()` / `.get()` / `.lookup_rut()` / `.iter_all()` | `client.entities.by_rut(rut)` (and `client.rpsf` for CMF registry records) |
-| `client.material_events.list()` / `.get()` / `.iter_all()`     | `client.kyb.get(rut)["recent_material_events"]` or `client.entities.material_events(entity_id)` |
-| `from cerberus_compliance import RegistriesResource`           | — (removed from `__all__`)                                                 |
-| `from cerberus_compliance import MaterialEventsResource`       | — (removed from `__all__`)                                                 |
+```python
+from cerberus_compliance import verify_webhook_signature
 
-`client.persons.list()` and `client.persons.get()` remain as
-`DeprecationWarning`-then-`NotImplementedError` shims for one more release
-(scheduled removal in v0.4.0). Migrate to
-`client.persons.regulatory_profile(rut)` or
-`client.entities.directors(entity_id)`.
+es_valida = verify_webhook_signature(
+    payload=cuerpo_crudo,                 # bytes
+    signature_header=cabecera_firma,      # str: 't=<unix_ts>,v1=<hex_hmac>'
+    secret=secreto,                       # str
+    max_age_seconds=300,                  # tolerancia de frescura, en segundos
+)
+```
 
-## Status / roadmap
+Devuelve `True` solo si la firma es válida y reciente; nunca lanza excepción ante un encabezado malformado.
 
-`v0.3.0` tracks the real production API at `https://compliance.cerberus.cl/v1`.
-Typed resource coverage:
+Tipos de evento (`WebhookEventType`):
 
-| Surface                                                                  | Status              |
-|--------------------------------------------------------------------------|---------------------|
-| `CerberusClient` / `AsyncCerberusClient`                                 | Shipped in v0.2.0   |
-| `CerberusAPIError` hierarchy (incl. `NotFoundError`)                     | Shipped in v0.2.0   |
-| `RetryConfig`, `ApiKeyAuth`                                              | Shipped in v0.2.0   |
-| `client.kyb.get(rut, *, as_of, include)`                                 | Shipped in v0.2.0   |
-| `client.entities` (`list` / `get` / `by_rut` / `ownership` / `sanctions` / `directors` / `regulations` / `iter_all`) | Shipped in v0.2.0 |
-| `client.persons.regulatory_profile(rut)`                                 | Shipped in v0.2.0   |
-| `client.sanctions`, `client.regulations` (+ `search`)                    | Shipped in v0.2.0   |
-| `client.rpsf` (CMF Registro Público de Servicios Financieros)            | Shipped in v0.2.0   |
-| `client.normativa` (regulatory-text catalogue + `mercado` mapping)       | Shipped in v0.2.0   |
-| `client.indicadores` (CMF Indicadores API v3 — UF/UTM/USD/EUR/IPC/TMC)   | Shipped in v0.3.0   |
-| `client.normativa_consulta` (CMF rulemaking consultations, abierta/cerrada) | Shipped in v0.3.0 |
-| `client.registries`, `client.material_events`                            | **Removed** in v0.3.0 (were deprecated shims in v0.2.0) |
-| `persons.list/get` deprecated shims                                      | Scheduled removal in v0.4.0 |
-| Webhook signature helper (SDK-side)                                      | Planned v0.4.0      |
+`hecho_esencial.new`, `sancion.new`, `resolucion.new`, `tdc.new`, `dictamen.new`, `comunicacion.new`, `opa.new`, `art12.new`, `art20.new`, `entity.changed`, `ping`.
 
-For endpoints not yet wrapped by a typed resource, the low-level
-`client._request(method, path, *, params=..., json=...)` transport is
-available and returns the parsed JSON body as a `dict`.
+El estado de un webhook (`WebhookStatus`) es `active` o `disabled`.
 
-## Contributing
+---
+
+## Ejemplos
+
+El repositorio incluye ejemplos ejecutables en `examples/`:
+
+| Archivo | Qué muestra |
+|---|---|
+| `kyb_quickstart.py` | Inicio rápido de KYB con el SDK. |
+| `entities_lookup.py` | Resuelve una entidad chilena de extremo a extremo por la superficie `client.entities`. |
+| `persons_profile.py` | Obtiene el perfil regulatorio de una persona natural. |
+| `sanctions_browse.py` | Navega sanciones CMF mediante el recurso `client.sanctions`. |
+| `sanctions_cross_reference.py` | Cruza una persona contra OFAC SDN, ONU Consolidada y listas CMF. |
+| `regulations_search.py` | Navega y busca por texto completo el catálogo de regulaciones de la CMF. |
+| `normativa_explore.py` | Explora el catálogo de textos regulatorios mediante `client.normativa`. |
+| `normativa_consulta_basic.py` | Navega las consultas de normativa de la CMF (proyectos abiertos y cerrados). |
+| `rpsf_explore.py` | Explora el Registro Público de Servicios Financieros (RPSF). |
+| `indicadores_basic.py` | Obtiene indicadores de la CMF (UF, UTM, USD, EUR, IPC, TMC). |
+| `equity_prices.py` | Descarga el OHLCV diario del IPSA-25 mediante el endpoint de equity. |
+| `sasb_topics_browse.py` | Navega la taxonomía de temas SASB Standards 2018. |
+| `cursor_pagination.py` | Tres idiomas de paginación por cursor sobre `iter_all`. |
+| `exports_bulk_csv.py` | Dispara una exportación masiva CSV y descarga el resultado. |
+| `error_handling.py` | Recorre cada excepción de la jerarquía `CerberusAPIError`. |
+| `admin_api_keys_introspect.py` | Inspecciona los metadatos (tier/cuota) de la API key en uso mediante `client.admin_api_keys.me`. |
+| `async_concurrent_lookups.py` | Consultas KYB concurrentes sobre una cartera de 5 RUT con `AsyncCerberusClient`. |
+| `monitor_portfolio.py` | Monitor asíncrono de una cartera contra la API. |
+| `webhooks_subscribe_and_verify.py` | Suscribe un webhook y verifica sin conexión una firma entrante. |
+| `webhook_handler.py` | Ejemplo de endpoint receptor de webhooks (servidor HTTP, cualquier framework ASGI) para eventos salientes de Cerberus. |
+
+---
+
+## Compatibilidad y tipado
+
+- Versión actual del SDK: **0.6.0**.
+- Python **3.10 o superior** (clasificadores para 3.10, 3.11 y 3.12).
+- El paquete distribuye `py.typed`: los modelos y firmas están completamente anotados y se verifican con `mypy` en modo estricto.
+- Dependencias en tiempo de ejecución del paquete cliente: `httpx` (`>=0.27,<1.0`) y `pydantic` (`>=2.6,<3.0`).
+- El control de deriva entre el SDK y la API se verifica con `scripts/check_sdk_drift.py`, de modo que la superficie tipada se mantenga alineada con la especificación publicada.
+
+---
+
+## Contribuir
 
 ```bash
 git clone https://github.com/l0rdbarcsacs/cerberus-sdk-python.git
 cd cerberus-sdk-python
 pip install -e ".[dev]"
-pytest -q
-mypy --strict cerberus_compliance/
-ruff check .
-ruff format --check .
+
+pytest          # pruebas
+mypy .          # verificación estática de tipos
+ruff check .    # estilo y linting
 ```
 
-Changelog: [`CHANGELOG.md`](./CHANGELOG.md).
-Issues: <https://github.com/l0rdbarcsacs/cerberus-sdk-python/issues>.
+---
 
-## Links
+## Enlaces
 
-- PyPI: <https://pypi.org/project/cerberus-compliance>
-- Repository: <https://github.com/l0rdbarcsacs/cerberus-sdk-python>
-- Developer portal: <https://developers.cerberus.cl>
-- Changelog: [`CHANGELOG.md`](./CHANGELOG.md)
+- **PyPI**: https://pypi.org/project/cerberus-compliance/
+- **Repositorio**: https://github.com/l0rdbarcsacs/cerberus-sdk-python
+- **Plataforma (Explorer)**: https://compliance.cerberus.cl/explorer
+- **Documentación OpenAPI**: https://compliance.cerberus.cl/docs
+- **Portal de desarrolladores**: https://developers.cerberus.cl
+- **CHANGELOG**: https://github.com/l0rdbarcsacs/cerberus-sdk-python/blob/main/CHANGELOG.md
 
-## License
+---
 
-MIT — see [LICENSE](./LICENSE).
+## Licencia
+
+El código de este SDK se distribuye bajo licencia **MIT**: es un cliente de código abierto que usted puede usar, modificar y redistribuir libremente. El acceso a los datos y al servicio de Cerberus Compliance es **comercial** y se rige por las condiciones del plan asociado a su clave API; el carácter abierto del cliente no confiere acceso a los datos.
