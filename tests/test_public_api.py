@@ -10,6 +10,51 @@ from __future__ import annotations
 import cerberus_compliance
 
 EXPECTED_ALL = {
+    # v0.7.0 — 18 new typed resources + 4 extensions (54 endpoints)
+    "AsyncBankingResource",
+    "AsyncCopilotResource",
+    "AsyncDiarioResource",
+    "AsyncFinancialsResource",
+    "AsyncFondosResource",
+    "AsyncGraphResource",
+    "AsyncGruposResource",
+    "AsyncHechosResource",
+    "AsyncIPSAResource",
+    "AsyncInsiderResource",
+    "AsyncNormsResource",
+    "AsyncRANResource",
+    "AsyncRatingsResource",
+    "AsyncRentasResource",
+    "AsyncSCOMPResource",
+    "AsyncSIIResource",
+    "AsyncScreeningResource",
+    "AsyncWatchlistResource",
+    "BankingResource",
+    "CopilotResource",
+    "CopilotStreamEvent",
+    "DiarioEventoTipo",
+    "DiarioResource",
+    "FinancialsResource",
+    "FondosPeriodicidad",
+    "FondosResource",
+    "GraphResource",
+    "GruposResource",
+    "HechoEventType",
+    "HechosResource",
+    "IPSAResource",
+    "InsiderResource",
+    "InsiderSubjectType",
+    "NormsResource",
+    "RANResource",
+    "RatingsDistributionType",
+    "RatingsResource",
+    "RegulationType",
+    "RentasResource",
+    "SCOMPResource",
+    "SIIResource",
+    "SancionEstado",
+    "ScreeningResource",
+    "WatchlistResource",
     # v0.6.0 — API contract realignment (search, indicadores, webhooks)
     "SearchDateRange",
     "WebhookEventType",
@@ -87,8 +132,8 @@ EXPECTED_ALL = {
 }
 
 
-def test_version_is_v0_6_0() -> None:
-    assert cerberus_compliance.__version__ == "0.6.0"
+def test_version_is_v0_7_0() -> None:
+    assert cerberus_compliance.__version__ == "0.7.0"
 
 
 def test_all_matches_expected_surface() -> None:

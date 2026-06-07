@@ -112,6 +112,94 @@ class TestSyncPersonsRegulatoryProfile:
 
 
 # ---------------------------------------------------------------------------
+# co_directors (interlocking directorates) — sync. MUST NOT warn.
+# ---------------------------------------------------------------------------
+
+
+class TestSyncPersonsCoDirectors:
+    def test_co_directors_returns_dict_without_warning(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        body = {
+            "rut": "7890123-4",
+            "nombre_completo": "Juan Pérez",
+            "co_directors": [
+                {
+                    "persona_rut": "10000000-0",
+                    "persona_nombre": "Ana Soto",
+                    "shared_board_count": 2,
+                    "shared_companies": [
+                        {
+                            "entity_id": "11111111-1111-1111-1111-111111111111",
+                            "entity_rut": "96500000-0",
+                            "entity_name": "Banco Ejemplo",
+                        }
+                    ],
+                }
+            ],
+            "total": 1,
+        }
+        route = respx_mock.get("/persons/7890123-4/co-directors").mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        resource = PersonsResource(sync_client)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert resource.co_directors("7890123-4") == body
+        assert route.called
+        # No query string and no request body.
+        assert route.calls.last.request.url.query == b""
+        assert route.calls.last.request.content == b""
+
+    def test_co_directors_path_is_percent_encoded(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """User-supplied rut containing '../' must be percent-encoded."""
+        route = respx_mock.get("/persons/..%2Fadmin/co-directors").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "rut": "../admin",
+                    "nombre_completo": None,
+                    "co_directors": [],
+                    "total": 0,
+                },
+            )
+        )
+        resource = PersonsResource(sync_client)
+        result = resource.co_directors("../admin")
+        assert result["total"] == 0
+        assert route.called
+
+    def test_co_directors_propagates_404(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/persons/99999999-9/co-directors").mock(
+            return_value=httpx.Response(
+                404,
+                json={"title": "Not Found", "status": 404, "detail": "Person/99999999-9"},
+            )
+        )
+        resource = PersonsResource(sync_client)
+        with pytest.raises(NotFoundError):
+            resource.co_directors("99999999-9")
+
+    def test_co_directors_propagates_422_invalid_rut(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/persons/not-a-rut/co-directors").mock(
+            return_value=httpx.Response(
+                422,
+                json={"title": "Unprocessable Entity", "status": 422},
+            )
+        )
+        resource = PersonsResource(sync_client)
+        with pytest.raises(CerberusAPIError) as exc:
+            resource.co_directors("not-a-rut")
+        assert exc.value.status == 422
+
+
+# ---------------------------------------------------------------------------
 # Sync ``list`` + ``iter_all`` — paginated PEP-lite listing
 # ---------------------------------------------------------------------------
 
@@ -350,6 +438,69 @@ class TestAsyncPersonsRegulatoryProfile:
         result = await resource.regulatory_profile("../admin")
         assert result == {"pep": False}
         assert route.called
+
+
+# ---------------------------------------------------------------------------
+# co_directors — async mirror. MUST NOT warn.
+# ---------------------------------------------------------------------------
+
+
+class TestAsyncPersonsCoDirectors:
+    async def test_co_directors_returns_dict_without_warning(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        body = {
+            "rut": "7890123-4",
+            "nombre_completo": None,
+            "co_directors": [],
+            "total": 0,
+        }
+        route = respx_mock.get("/persons/7890123-4/co-directors").mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        resource = AsyncPersonsResource(async_client)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert await resource.co_directors("7890123-4") == body
+        assert route.called
+        assert route.calls.last.request.url.query == b""
+
+    async def test_co_directors_path_is_percent_encoded(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/persons/..%2Fadmin/co-directors").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "rut": "../admin",
+                    "nombre_completo": None,
+                    "co_directors": [],
+                    "total": 0,
+                },
+            )
+        )
+        resource = AsyncPersonsResource(async_client)
+        result = await resource.co_directors("../admin")
+        assert result == {
+            "rut": "../admin",
+            "nombre_completo": None,
+            "co_directors": [],
+            "total": 0,
+        }
+        assert route.called
+
+    async def test_co_directors_propagates_404(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/persons/99999999-9/co-directors").mock(
+            return_value=httpx.Response(
+                404,
+                json={"title": "Not Found", "status": 404},
+            )
+        )
+        resource = AsyncPersonsResource(async_client)
+        with pytest.raises(NotFoundError):
+            await resource.co_directors("99999999-9")
 
 
 # ---------------------------------------------------------------------------

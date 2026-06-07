@@ -539,3 +539,143 @@ class TestSanctionsCrossReferenceAsync:
         assert params["name"] == "Jane Doe"
         assert params["threshold"] == "0.7"
         assert params["limit"] == "5"
+
+
+# ---------------------------------------------------------------------------
+# top_entities — ranked-entity envelope (NOT cursor-paginated)
+# ---------------------------------------------------------------------------
+
+_TOP_ENTITIES_BODY: dict[str, Any] = {
+    "items": [
+        {
+            "rut": "76123456-7",
+            "legal_name": "Acme Holdings S.A.",
+            "sanciones_count": 12,
+            "multa_uf_total": "1500.50",
+            "ultima_sancion_at": "2026-01-15",
+        },
+        {
+            "rut": "99888777-6",
+            "legal_name": "Beta Corp Ltda.",
+            "sanciones_count": 5,
+            "multa_uf_total": None,
+            "ultima_sancion_at": "2025-11-02",
+        },
+    ],
+    "total": 2,
+}
+
+
+class TestSanctionsTopEntitiesSync:
+    def test_top_entities_no_filters(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/top-entities").mock(
+            return_value=httpx.Response(200, json=_TOP_ENTITIES_BODY)
+        )
+        resource = SanctionsResource(sync_client)
+        out = resource.top_entities()
+        assert out == _TOP_ENTITIES_BODY
+        # Returned verbatim as a dict envelope, not unwrapped to a list.
+        assert out["total"] == 2
+        assert out["items"][1]["multa_uf_total"] is None
+        assert route.called
+        assert route.calls.last.request.url.query == b""
+
+    def test_top_entities_with_all_params(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/top-entities").mock(
+            return_value=httpx.Response(200, json={"items": [], "total": 0})
+        )
+        resource = SanctionsResource(sync_client)
+        resource.top_entities(limit=25, estado="vigente", fecha_desde="2025-01-01")
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params["limit"] == "25"
+        assert params["estado"] == "vigente"
+        assert params["fecha_desde"] == "2025-01-01"
+
+    def test_top_entities_omits_none_filters(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/top-entities").mock(
+            return_value=httpx.Response(200, json={"items": [], "total": 0})
+        )
+        resource = SanctionsResource(sync_client)
+        resource.top_entities(estado="prescrita")
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params == {"estado": "prescrita"}
+        assert "limit" not in params
+        assert "fecha_desde" not in params
+
+    def test_top_entities_propagates_500(
+        self,
+        sync_client: CerberusClient,
+        respx_mock: respx.MockRouter,
+        problem_json: Any,
+    ) -> None:
+        respx_mock.get("/sanctions/top-entities").mock(
+            return_value=httpx.Response(
+                500, json=problem_json(status=500, title="Internal Server Error")
+            )
+        )
+        resource = SanctionsResource(sync_client)
+        with pytest.raises(CerberusAPIError) as exc:
+            resource.top_entities()
+        assert exc.value.status == 500
+
+
+class TestSanctionsTopEntitiesAsync:
+    async def test_top_entities_no_filters(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/top-entities").mock(
+            return_value=httpx.Response(200, json=_TOP_ENTITIES_BODY)
+        )
+        resource = AsyncSanctionsResource(async_client)
+        out = await resource.top_entities()
+        assert out == _TOP_ENTITIES_BODY
+        assert route.called
+        assert route.calls.last.request.url.query == b""
+
+    async def test_top_entities_with_all_params(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/top-entities").mock(
+            return_value=httpx.Response(200, json={"items": [], "total": 0})
+        )
+        resource = AsyncSanctionsResource(async_client)
+        await resource.top_entities(limit=50, estado="anulada", fecha_desde="2024-06-30")
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params["limit"] == "50"
+        assert params["estado"] == "anulada"
+        assert params["fecha_desde"] == "2024-06-30"
+
+    async def test_top_entities_omits_none_filters(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/sanctions/top-entities").mock(
+            return_value=httpx.Response(200, json={"items": [], "total": 0})
+        )
+        resource = AsyncSanctionsResource(async_client)
+        await resource.top_entities(limit=10)
+        params = dict(route.calls.last.request.url.params.multi_items())
+        assert params == {"limit": "10"}
+        assert "estado" not in params
+        assert "fecha_desde" not in params
+
+    async def test_top_entities_propagates_500(
+        self,
+        async_client: AsyncCerberusClient,
+        respx_mock: respx.MockRouter,
+        problem_json: Any,
+    ) -> None:
+        respx_mock.get("/sanctions/top-entities").mock(
+            return_value=httpx.Response(
+                500, json=problem_json(status=500, title="Internal Server Error")
+            )
+        )
+        resource = AsyncSanctionsResource(async_client)
+        with pytest.raises(CerberusAPIError) as exc:
+            await resource.top_entities()
+        assert exc.value.status == 500

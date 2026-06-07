@@ -38,9 +38,21 @@ from cerberus_compliance.resources.admin_api_keys import (
 )
 from cerberus_compliance.resources.art12 import Art12Resource, AsyncArt12Resource
 from cerberus_compliance.resources.art20 import Art20Resource, AsyncArt20Resource
+from cerberus_compliance.resources.banking import (
+    AsyncBankingResource,
+    BankingResource,
+)
 from cerberus_compliance.resources.comunicaciones import (
     AsyncComunicacionesResource,
     ComunicacionesResource,
+)
+from cerberus_compliance.resources.copilot import (
+    AsyncCopilotResource,
+    CopilotResource,
+)
+from cerberus_compliance.resources.diario import (
+    AsyncDiarioResource,
+    DiarioResource,
 )
 from cerberus_compliance.resources.dictamenes import (
     AsyncDictamenesResource,
@@ -53,9 +65,37 @@ from cerberus_compliance.resources.entities import (
 from cerberus_compliance.resources.equity import AsyncEquityResource, EquityResource
 from cerberus_compliance.resources.esg import AsyncESGResource, ESGResource
 from cerberus_compliance.resources.exports import AsyncExportsResource, ExportsResource
+from cerberus_compliance.resources.financials import (
+    AsyncFinancialsResource,
+    FinancialsResource,
+)
+from cerberus_compliance.resources.fondos import (
+    AsyncFondosResource,
+    FondosResource,
+)
+from cerberus_compliance.resources.graph import (
+    AsyncGraphResource,
+    GraphResource,
+)
+from cerberus_compliance.resources.grupos import (
+    AsyncGruposResource,
+    GruposResource,
+)
+from cerberus_compliance.resources.hechos import (
+    AsyncHechosResource,
+    HechosResource,
+)
 from cerberus_compliance.resources.indicadores import (
     AsyncIndicadoresResource,
     IndicadoresResource,
+)
+from cerberus_compliance.resources.insider import (
+    AsyncInsiderResource,
+    InsiderResource,
+)
+from cerberus_compliance.resources.ipsa import (
+    AsyncIPSAResource,
+    IPSAResource,
 )
 from cerberus_compliance.resources.kyb import (
     AsyncKYBResource,
@@ -73,14 +113,30 @@ from cerberus_compliance.resources.normativa_historic import (
     AsyncNormativaHistoricResource,
     NormativaHistoricResource,
 )
+from cerberus_compliance.resources.norms import (
+    AsyncNormsResource,
+    NormsResource,
+)
 from cerberus_compliance.resources.opas import AsyncOPAsResource, OPAsResource
 from cerberus_compliance.resources.persons import (
     AsyncPersonsResource,
     PersonsResource,
 )
+from cerberus_compliance.resources.ran import (
+    AsyncRANResource,
+    RANResource,
+)
+from cerberus_compliance.resources.ratings import (
+    AsyncRatingsResource,
+    RatingsResource,
+)
 from cerberus_compliance.resources.regulations import (
     AsyncRegulationsResource,
     RegulationsResource,
+)
+from cerberus_compliance.resources.rentas import (
+    AsyncRentasResource,
+    RentasResource,
 )
 from cerberus_compliance.resources.resoluciones import (
     AsyncResolucionesResource,
@@ -99,8 +155,24 @@ from cerberus_compliance.resources.sasb_topics import (
     AsyncSasbTopicsResource,
     SasbTopicsResource,
 )
+from cerberus_compliance.resources.scomp import (
+    AsyncSCOMPResource,
+    SCOMPResource,
+)
+from cerberus_compliance.resources.screening import (
+    AsyncScreeningResource,
+    ScreeningResource,
+)
 from cerberus_compliance.resources.search import AsyncSearchClient, SearchClient
+from cerberus_compliance.resources.sii import (
+    AsyncSIIResource,
+    SIIResource,
+)
 from cerberus_compliance.resources.tdc import AsyncTDCResource, TDCResource
+from cerberus_compliance.resources.watchlist import (
+    AsyncWatchlistResource,
+    WatchlistResource,
+)
 from cerberus_compliance.resources.webhooks import AsyncWebhooksResource, WebhooksResource
 from cerberus_compliance.retry import RetryConfig, backoff_seconds, should_retry
 
@@ -273,6 +345,24 @@ class CerberusClient:
         self.webhooks = WebhooksResource(self)
         self.equity = EquityResource(self)
         self.resolve = ResolveResource(self)
+        self.banking = BankingResource(self)
+        self.copilot = CopilotResource(self)
+        self.diario = DiarioResource(self)
+        self.financials = FinancialsResource(self)
+        self.fondos = FondosResource(self)
+        self.graph = GraphResource(self)
+        self.grupos = GruposResource(self)
+        self.hechos = HechosResource(self)
+        self.insider = InsiderResource(self)
+        self.ipsa = IPSAResource(self)
+        self.norms = NormsResource(self)
+        self.ran = RANResource(self)
+        self.ratings = RatingsResource(self)
+        self.rentas = RentasResource(self)
+        self.scomp = SCOMPResource(self)
+        self.screening = ScreeningResource(self)
+        self.sii = SIIResource(self)
+        self.watchlist = WatchlistResource(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 
@@ -467,6 +557,24 @@ class AsyncCerberusClient:
         self.webhooks = AsyncWebhooksResource(self)
         self.equity = AsyncEquityResource(self)
         self.resolve = AsyncResolveResource(self)
+        self.banking = AsyncBankingResource(self)
+        self.copilot = AsyncCopilotResource(self)
+        self.diario = AsyncDiarioResource(self)
+        self.financials = AsyncFinancialsResource(self)
+        self.fondos = AsyncFondosResource(self)
+        self.graph = AsyncGraphResource(self)
+        self.grupos = AsyncGruposResource(self)
+        self.hechos = AsyncHechosResource(self)
+        self.insider = AsyncInsiderResource(self)
+        self.ipsa = AsyncIPSAResource(self)
+        self.norms = AsyncNormsResource(self)
+        self.ran = AsyncRANResource(self)
+        self.ratings = AsyncRatingsResource(self)
+        self.rentas = AsyncRentasResource(self)
+        self.scomp = AsyncSCOMPResource(self)
+        self.screening = AsyncScreeningResource(self)
+        self.sii = AsyncSIIResource(self)
+        self.watchlist = AsyncWatchlistResource(self)
         # Sub-resources are wired above by Instances B/C — keep this exact marker:
         # INSERT RESOURCES HERE
 

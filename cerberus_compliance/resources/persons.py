@@ -39,7 +39,11 @@ from collections.abc import AsyncIterator, Iterator
 from typing import Any, Literal
 from urllib.parse import quote
 
-from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
+from cerberus_compliance.resources._base import (
+    AsyncBaseResource,
+    BaseResource,
+    _encode_id,
+)
 
 __all__ = ["AsyncPersonsResource", "PersonEntityKind", "PersonsResource"]
 
@@ -183,6 +187,37 @@ class PersonsResource(BaseResource):
             "GET", f"{self._path_prefix}/{quote(id_, safe='')}/regulatory-profile"
         )
 
+    def co_directors(self, rut: str) -> dict[str, Any]:
+        """Return the person's interlocking-directorate peers (co-directors).
+
+        Issues ``GET /v1/persons/<rut>/co-directors``. Peers are natural
+        persons who share an *active* board seat with ``rut`` — computed
+        server-side via a self-join over ``cmf_persona_cargos`` on the
+        active board window. The response is a single object (not a
+        paginated envelope); ``co_directors`` arrives complete, ordered
+        by ``shared_board_count`` descending (most interconnected first),
+        and ``total`` equals its length. The body is returned verbatim.
+
+        Args:
+            rut: The person's RUT. Canonicalised server-side; percent-
+                encoded here so traversal sequences cannot escape the
+                ``/persons`` prefix.
+
+        Returns:
+            ``{"rut": str, "nombre_completo": str|None,
+            "co_directors": [...], "total": int}``.
+
+        Raises:
+            cerberus_compliance.errors.NotFoundError: The person is not
+                in the CMF corpus (HTTP 404).
+            cerberus_compliance.errors.CerberusAPIError: Any other API
+                error — including 422 when the RUT fails modulo-11
+                validation and 403 when the caller's tier/scope is
+                insufficient (this endpoint needs ``kyb:read`` and
+                ``starter`` tier or higher).
+        """
+        return self._client._request("GET", f"{self._path_prefix}/{_encode_id(rut)}/co-directors")
+
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Iterate every matching person, transparently paginating.
 
@@ -241,6 +276,12 @@ class AsyncPersonsResource(AsyncBaseResource):
         """Async variant of :meth:`PersonsResource.regulatory_profile`."""
         return await self._client._request(
             "GET", f"{self._path_prefix}/{quote(id_, safe='')}/regulatory-profile"
+        )
+
+    async def co_directors(self, rut: str) -> dict[str, Any]:
+        """Async variant of :meth:`PersonsResource.co_directors`."""
+        return await self._client._request(
+            "GET", f"{self._path_prefix}/{_encode_id(rut)}/co-directors"
         )
 
     async def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:

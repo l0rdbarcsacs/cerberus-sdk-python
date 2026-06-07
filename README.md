@@ -303,42 +303,52 @@ El rango recomendado de `top_k` es de 1 a 40.
 
 ---
 
-## Superficie adicional de la API (roadmap de tipado)
+## Cobertura total de la API (v0.7.0)
 
-La API de producción expone hoy más capacidades que las cubiertas por recursos tipados. Todas ellas son accesibles **ahora mismo** mediante el transporte de bajo nivel `client._request(method, path, ...)`, que devuelve el cuerpo de respuesta ya deserializado y aplica la misma autenticación, reintentos y manejo de errores que los recursos tipados. Los recursos tipados correspondientes están en el roadmap; hasta entonces, esta es la vía honesta de consumo.
+Desde la versión **0.7.0**, el SDK envuelve la **totalidad de la superficie pública** de la API con recursos tipados (cobertura verificada contra el OpenAPI de producción: 0 endpoints sin envolver). Las capacidades que en versiones previas exigían el transporte de bajo nivel ahora se exponen como `client.<recurso>`:
 
-Capacidades disponibles hoy por esta vía:
+| Recurso | Métodos clave | Propósito |
+|---|---|---|
+| `client.graph` | `ego_network(rut)`, `shortest_path(*, from_rut, to_rut)`, `node_centrality(rut)`, `centrality_distribution()`, `centrality_batch(ruts)`, `edge_detail(edge_id)`, `edge_transactions(edge_id, ...)`, `nodes_attrs(ruts)` | Grafo de conocimiento de entidades: co-direcciones, propiedad y grupos económicos (scope `graph:read`; la distribución agregada es pública, `entities:read`). |
+| `client.copilot` | `ask(...)`, `ask_public(...)`, `ask_stream(...)`, `ask_public_stream(...)`, `upload_document(...)`, `get_document(id)` | Copiloto regulatorio con respuestas fundamentadas y citas («cite-or-refuse»), en JSON o por streaming (SSE), con documentos adjuntos opcionales. |
+| `client.financials` | `get_summary(rut)`, `get_ratios(rut)`, `get_distress(rut)`, `get_benchmark(rut)`, `get_timeseries(rut)`, `get_distress_histogram()`, `get_sector_stats()` | Estados financieros IFRS, razones, indicadores de distress y comparación sectorial. |
+| `client.ratings` | `get_entity_ratings(rut)`, `get_entity_ratings_timeline(rut)`, `get_ratings_distribution()`, `get_ratings_migration()` | Clasificaciones de riesgo oficiales, su evolución por agencia y su migración. |
+| `client.screening` | `get_exposure(rut)`, `get_exposure_distribution()` | Exposición frente a listas de sanciones, incluida la exposición por contagio en la red. |
+| `client.hechos` | `list_hechos(...)`, `list_hechos_bancos(...)`, `list_hechos_otros(...)`, `hechos_event_type_distribution()` | Hechos esenciales (emisores, bancos, otros) y su distribución por tipo. |
+| `client.fondos` | `list(...)`, `get(run)` | Fondos mutuos y sus métricas. |
+| `client.grupos` | `get_by_rut(rut)` | Grupos empresariales por RUT. |
+| `client.insider` | `get_profile(rut_or_persona)` | Red de personas con información privilegiada (Art. 12). |
+| `client.ipsa` | `risk_panel()`, `ticker_risk(ticker)`, `event_study(ticker_or_rut)` | Panel de riesgo del IPSA y estudios de evento de mercado. |
+| `client.banking` | `list_indicadores(...)` | Indicadores prudenciales bancarios. |
+| `client.norms` | `top_cited(...)`, `citations(regulation_id)` | Normas más citadas y red de citaciones normativas. |
+| `client.diario` · `client.ran` · `client.rentas` · `client.scomp` · `client.sii` | `list(...)` / `list_*(...)` (+ `iter_all` donde aplica) | Diario Oficial, RAN, rentas vitalicias, estadísticas SCOMP y nóminas SII. |
+| `client.watchlist` | `list()`, `create(...)`, `get(entry_id)`, `delete(entry_id)` | Listas de seguimiento (CRUD). |
 
-- **Grafo de conocimiento**: red ego alrededor de un RUT, caminos entre dos RUT, métricas de centralidad y su distribución (co-direcciones, propiedad y grupos económicos).
-- **Copiloto regulatorio (RAG)**: respuestas fundamentadas con citas verificadas a la fuente, o rechazo honesto cuando no hay sustento (política «cite-or-refuse»).
-- **Evaluación de exposición (screening)**: exposición de una entidad frente a listas de sanciones, incluida la exposición por contagio en la red, y su distribución agregada.
-- **Estados financieros (IFRS)**: estados financieros con ratios, indicadores de distress, benchmarking sectorial y series temporales (bajo rutas `/entities/{rut}/financials`, `/ratios`, `/distress`, `/benchmark` y `/timeseries`).
-- **Clasificaciones de riesgo (ratings)**: clasificaciones oficiales, su línea de tiempo por agencia, distribución del mercado y matrices de migración (bajo rutas `/entities/{rut}/ratings`, `/ratings-timeline`, `/ratings/distribution` y `/migration`).
-- **Red de personas con información privilegiada (insiders)**: perfil de red de una persona con información privilegiada por RUT o nombre, con su actividad de transacciones de personas relacionadas y sus vínculos.
-- **Fondos, grupos y bancos**: fondos con sus métricas, grupos empresariales por RUT, fichas prudenciales de bancos e indicadores bancarios.
-- **Renta variable / IPSA (equity)**: panel de riesgo del IPSA, riesgo por instrumento y estudios de evento de mercado.
-- **Indicadores con proyección a futuro**, **listas de seguimiento (watchlist)**, capa de amplitud del registro de personas jurídicas y demás registros regulatorios complementarios.
+Además, recursos existentes ganaron métodos: `client.indicadores.forecast(name)` (proyección), `client.regulations.lineage(id)`, `client.persons.co_directors(rut)` y `client.sanctions.top_entities()`.
+
+### Copiloto: respuesta directa o por streaming
 
 ```python
 from cerberus_compliance import CerberusClient
 
 with CerberusClient() as client:
-    # Grafo de conocimiento: red ego alrededor de un RUT.
-    # (base_url ya incluye /v1; la ruta es GET /v1/graph/{rut})
-    ego = client._request("GET", "/graph/76.123.456-7")
+    # Respuesta completa (JSON), con política cite-or-refuse:
+    res = client.copilot.ask("¿Qué exige la NCG 461 en materia de gobernanza?")
+    print(res["kind"], res["answer"])      # 'grounded' | 'refusal' | 'conversational'
+    for cita in res["citations"]:
+        print(cita["source_table"], cita["title"])
 
-    # Copiloto regulatorio (RAG): respuesta fundamentada con citas.
-    # Endpoint autenticado: POST /v1/copilot/ask (scope copilot:read).
-    respuesta = client._request(
-        "POST",
-        "/copilot/ask",
-        json={"question": "¿Qué exige la NCG 461 en materia de gobernanza?"},
-    )
+    # Streaming incremental (Server-Sent-Events) → CopilotStreamEvent:
+    for evento in client.copilot.ask_stream("Resuma la NCG 461"):
+        if evento.event == "delta":
+            print(evento.data["text"], end="")
+        elif evento.event == "answer":
+            final = evento.data            # objeto de respuesta canónico
 ```
 
-> El copiloto se invoca con su clave `ck_live_...`. `/copilot/ask` (scope `copilot:read`) opera sobre todo el corpus indexado; existe además `/copilot/ask-public` (scope `regulations:read`), acotado al corpus de normativa pública.
+> El copiloto se invoca con su clave `ck_live_...`. `ask` / `ask_stream` (scope `copilot:read`) operan sobre todo el corpus indexado; `ask_public` / `ask_public_stream` (scope `regulations:read`) responden únicamente sobre normativa pública.
 
-> Honestidad: estas superficies aún **no** disponen de recurso tipado. La firma exacta de cada ruta y de su cuerpo de solicitud es la publicada en la especificación OpenAPI (véase «Enlaces»). A medida que se tipifiquen, se expondrán como `client.<recurso>` y se documentarán aquí.
+> Para cualquier endpoint aún no presente en su versión del SDK, el transporte de bajo nivel `client._request(method, path, *, params=..., json=...)` sigue disponible y aplica la misma autenticación, reintentos y manejo de errores.
 
 ---
 
@@ -541,7 +551,7 @@ El repositorio incluye ejemplos ejecutables en `examples/`:
 
 ## Compatibilidad y tipado
 
-- Versión actual del SDK: **0.6.0**.
+- Versión actual del SDK: **0.7.0**.
 - Python **3.10 o superior** (clasificadores para 3.10, 3.11 y 3.12).
 - El paquete distribuye `py.typed`: los modelos y firmas están completamente anotados y se verifican con `mypy` en modo estricto.
 - Dependencias en tiempo de ejecución del paquete cliente: `httpx` (`>=0.27,<1.0`) y `pydantic` (`>=2.6,<3.0`).

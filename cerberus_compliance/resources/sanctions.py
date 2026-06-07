@@ -13,9 +13,19 @@ from typing import Any, Literal
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 
-__all__ = ["AsyncSanctionsResource", "SanctionSource", "SanctionsResource"]
+__all__ = [
+    "AsyncSanctionsResource",
+    "SancionEstado",
+    "SanctionSource",
+    "SanctionsResource",
+]
 
 SanctionSource = Literal["OFAC", "EU", "UN", "ONU", "CMF"]
+
+# ``SancionEstado`` mirrors ``backend.models.cmf_sancion.SancionEstado`` —
+# the lifecycle state of a CMF sanction. Re-declared as a ``Literal`` here so
+# the SDK stays dependency-free; the raw value string is what the API expects.
+SancionEstado = Literal["vigente", "prescrita", "anulada"]
 
 
 def _build_params(
@@ -137,6 +147,50 @@ class SanctionsResource(BaseResource):
             params["name"] = name
         return self._client._request("GET", f"{self._path_prefix}/cross-reference", params=params)
 
+    def top_entities(
+        self,
+        *,
+        limit: int | None = None,
+        estado: SancionEstado | None = None,
+        fecha_desde: str | None = None,
+    ) -> dict[str, Any]:
+        """Rank legal entities by their number of CMF sanctions.
+
+        Issues ``GET /sanctions/top-entities``. The server ranks legal
+        entities by ``COUNT(*)`` of CMF sanctions descending (tie-broken
+        by entity id), excluding natural-person sanctions entirely. The
+        envelope is fixed (``{items, total}``), so this is *not* a
+        cursor-paginated collection — it is returned verbatim as a dict.
+
+        Args:
+            limit: Maximum number of ranked entities to return. The server
+                caps this at 50 (``ge=1, le=50``); omit to use the API
+                default of 10. No client-side validation is performed.
+            estado: Optional filter restricting contributing sanciones to a
+                single lifecycle state (``"vigente"``, ``"prescrita"`` or
+                ``"anulada"``). Sent as the raw enum value string.
+            fecha_desde: Optional ISO date (``YYYY-MM-DD``). Only sanciones
+                with ``fecha_resolucion >=`` this date are counted.
+
+        Returns:
+            ``{"items": [{"rut": str, "legal_name": str, "sanciones_count":
+            int, "multa_uf_total": str | None, "ultima_sancion_at": str}],
+            "total": int}``. ``multa_uf_total`` is a NULL-tolerant sum and is
+            ``None`` when every contributing fine is unreported; it is a
+            financial value (decode as ``Decimal``/``str``, never ``float``).
+            ``total`` equals the number of returned rows, not a global count.
+        """
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if estado is not None:
+            params["estado"] = estado
+        if fecha_desde is not None:
+            params["fecha_desde"] = fecha_desde
+        return self._client._request(
+            "GET", f"{self._path_prefix}/top-entities", params=params or None
+        )
+
 
 class AsyncSanctionsResource(AsyncBaseResource):
     """Asynchronous accessor for ``/sanctions``.
@@ -190,4 +244,23 @@ class AsyncSanctionsResource(AsyncBaseResource):
             params["name"] = name
         return await self._client._request(
             "GET", f"{self._path_prefix}/cross-reference", params=params
+        )
+
+    async def top_entities(
+        self,
+        *,
+        limit: int | None = None,
+        estado: SancionEstado | None = None,
+        fecha_desde: str | None = None,
+    ) -> dict[str, Any]:
+        """Async variant of :meth:`SanctionsResource.top_entities`."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if estado is not None:
+            params["estado"] = estado
+        if fecha_desde is not None:
+            params["fecha_desde"] = fecha_desde
+        return await self._client._request(
+            "GET", f"{self._path_prefix}/top-entities", params=params or None
         )

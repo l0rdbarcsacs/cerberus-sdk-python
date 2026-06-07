@@ -233,6 +233,60 @@ class IndicadoresResource(BaseResource):
         )
         return _extract_history_items(body)
 
+    def forecast(self, name: str, *, horizon: int | None = None) -> dict[str, Any]:
+        """Fetch a probabilistic forecast for an indicator series.
+
+        Issues ``GET /indicadores/{name}/forecast?horizon=N``. The forecast
+        is produced server-side by a TimesFM foundation model over up to the
+        latest 1024 observations of the series.
+
+        Args:
+            name: Indicator code (see :meth:`get`). Case-insensitive on the
+                server; an unknown name yields a 404.
+            horizon: Number of forecast steps requested. The server validates
+                ``1 <= horizon <= 256`` (FastAPI ``ge``/``le`` — out of range
+                returns 422) and additionally **clamps** the horizon per-series
+                according to its cadence and available history (e.g. ``PIB`` is
+                capped at 4), so the ``horizon`` echoed back in the response may
+                be smaller than the one requested. Omit for the server default
+                (``6``). No client-side cap is applied.
+
+        Returns:
+            The parsed JSON body. Shape (``IndicadorForecast``)::
+
+                {
+                    "name": "UF",
+                    "source": "cmf_api_sbifv3",
+                    "model": "timesfm-1.0-200m",
+                    "horizon": 6,
+                    "context_points": 1024,
+                    "interval_pct": 80,
+                    "interval_method": "calibrated-quantiles",
+                    "points": [
+                        {"step": 1, "point": "...", "lower": "...", "upper": "..."},
+                        ...
+                    ],
+                    "disclaimer": "Model forecast, not advice..."
+                }
+
+            ``point``/``lower``/``upper`` are exact-precision strings (Decimal
+            on the wire), never ``float`` — parse with :class:`decimal.Decimal`
+            to avoid binary-rounding drift.
+
+        Raises:
+            NotFoundError: Unknown ``name``, or the series has no historical
+                data in the database to forecast from.
+            ValidationError: ``horizon`` outside ``[1, 256]`` (server 422).
+            APIStatusError: The optional TimesFM model is not provisioned /
+                failed to load — the server returns ``503`` with detail
+                ``"forecast model not provisioned"`` and a ``Retry-After``
+                header. Treat this as transient capacity absence (never a
+                fabricated forecast) and respect ``Retry-After``.
+        """
+        path = f"{self._path_prefix}/{quote(name, safe='')}/forecast"
+        params = _clean_params({"horizon": horizon})
+        return self._client._request("GET", path, params=params)
+
 
 class AsyncIndicadoresResource(AsyncBaseResource):
     """Async mirror of :class:`IndicadoresResource`."""
@@ -253,3 +307,9 @@ class AsyncIndicadoresResource(AsyncBaseResource):
             "GET", path, params={"from": validated_from, "to": validated_to}
         )
         return _extract_history_items(body)
+
+    async def forecast(self, name: str, *, horizon: int | None = None) -> dict[str, Any]:
+        """Async variant of :meth:`IndicadoresResource.forecast`."""
+        path = f"{self._path_prefix}/{quote(name, safe='')}/forecast"
+        params = _clean_params({"horizon": horizon})
+        return await self._client._request("GET", path, params=params)

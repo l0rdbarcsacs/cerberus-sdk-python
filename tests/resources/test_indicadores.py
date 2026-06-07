@@ -21,7 +21,7 @@ import pytest
 import respx
 
 from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
-from cerberus_compliance.errors import NotFoundError, ValidationError
+from cerberus_compliance.errors import NotFoundError, ServerError, ValidationError
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 from cerberus_compliance.resources.indicadores import (
     AsyncIndicadoresResource,
@@ -30,6 +30,7 @@ from cerberus_compliance.resources.indicadores import (
     IndicatorName,
     SbifIndicatorName,
 )
+from cerberus_compliance.retry import RetryConfig
 
 # ---------------------------------------------------------------------------
 # Meta
@@ -235,6 +236,127 @@ class TestIndicadoresHistory:
 
 
 # ---------------------------------------------------------------------------
+# Sync: IndicadoresResource.forecast
+# ---------------------------------------------------------------------------
+
+
+_FORECAST_BODY = {
+    "name": "UF",
+    "source": "cmf_api_sbifv3",
+    "model": "timesfm-1.0-200m",
+    "horizon": 6,
+    "context_points": 1024,
+    "interval_pct": 80,
+    "interval_method": "calibrated-quantiles",
+    "points": [
+        {"step": 1, "point": "39421.73", "lower": "39400.00", "upper": "39443.00"},
+        {"step": 2, "point": "39430.10", "lower": "39405.00", "upper": "39455.00"},
+    ],
+    "disclaimer": "Model forecast, not advice. Past performance is not indicative.",
+}
+
+
+class TestIndicadoresForecast:
+    def test_forecast_default_horizon_omits_param(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/indicadores/UF/forecast").mock(
+            return_value=httpx.Response(200, json=_FORECAST_BODY)
+        )
+        resource = IndicadoresResource(sync_client)
+        result = resource.forecast("UF")
+        assert result["model"] == "timesfm-1.0-200m"
+        assert result["points"][0]["point"] == "39421.73"
+        assert route.called
+        # No ``horizon`` query param when omitted.
+        assert "horizon" not in route.calls.last.request.url.params
+
+    def test_forecast_with_horizon_forwards_param(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/indicadores/UF/forecast", params={"horizon": "12"}).mock(
+            return_value=httpx.Response(200, json={**_FORECAST_BODY, "horizon": 12})
+        )
+        resource = IndicadoresResource(sync_client)
+        result = resource.forecast("UF", horizon=12)
+        assert result["horizon"] == 12
+        assert route.called
+        assert route.calls.last.request.url.params["horizon"] == "12"
+
+    def test_forecast_percent_encodes_name(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """Path-traversal hardening — ``name`` is percent-encoded."""
+        route = respx_mock.get("/indicadores/..%2Fadmin/forecast").mock(
+            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
+        )
+        resource = IndicadoresResource(sync_client)
+        with pytest.raises(NotFoundError):
+            resource.forecast("../admin")
+        assert route.called
+
+    def test_forecast_404_unknown_name(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/indicadores/BOGUS/forecast").mock(
+            return_value=httpx.Response(
+                404,
+                json={"type": "about:blank", "title": "Not Found", "status": 404},
+            )
+        )
+        resource = IndicadoresResource(sync_client)
+        with pytest.raises(NotFoundError):
+            resource.forecast("BOGUS")
+
+    def test_forecast_422_horizon_out_of_range(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/indicadores/UF/forecast", params={"horizon": "999"}).mock(
+            return_value=httpx.Response(
+                422,
+                json={
+                    "type": "about:blank",
+                    "title": "Validation error",
+                    "status": 422,
+                    "detail": "horizon must be <= 256",
+                },
+            )
+        )
+        resource = IndicadoresResource(sync_client)
+        with pytest.raises(ValidationError):
+            resource.forecast("UF", horizon=999)
+
+    def test_forecast_503_model_not_provisioned(
+        self, base_url: str, api_key: str, respx_mock: respx.MockRouter
+    ) -> None:
+        """503 (model not provisioned) surfaces as ServerError; capacity absence.
+
+        Uses ``max_attempts=1`` so the retryable 503 is raised immediately
+        without sleeping through the backoff schedule.
+        """
+        respx_mock.get("/indicadores/UF/forecast").mock(
+            return_value=httpx.Response(
+                503,
+                headers={"Retry-After": "3600"},
+                json={"detail": "forecast model not provisioned"},
+            )
+        )
+        client = CerberusClient(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=2.0,
+            retry=RetryConfig(max_attempts=1),
+        )
+        try:
+            resource = IndicadoresResource(client)
+            with pytest.raises(ServerError) as excinfo:
+                resource.forecast("UF")
+            assert excinfo.value.status == 503
+        finally:
+            client.close()
+
+
+# ---------------------------------------------------------------------------
 # Async mirrors
 # ---------------------------------------------------------------------------
 
@@ -285,6 +407,63 @@ class TestIndicadoresAsync:
         )
         resource = AsyncIndicadoresResource(async_client)
         assert await resource.history("UF", from_="2026-01-01", to="2026-04-30") == []
+
+    async def test_forecast_default_horizon(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/indicadores/UF/forecast").mock(
+            return_value=httpx.Response(200, json=_FORECAST_BODY)
+        )
+        resource = AsyncIndicadoresResource(async_client)
+        out = await resource.forecast("UF")
+        assert out["interval_pct"] == 80
+        assert "horizon" not in route.calls.last.request.url.params
+
+    async def test_forecast_with_horizon(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/indicadores/PIB/forecast", params={"horizon": "4"}).mock(
+            return_value=httpx.Response(200, json={**_FORECAST_BODY, "name": "PIB", "horizon": 4})
+        )
+        resource = AsyncIndicadoresResource(async_client)
+        out = await resource.forecast("PIB", horizon=4)
+        assert out["horizon"] == 4
+        assert route.calls.last.request.url.params["horizon"] == "4"
+
+    async def test_forecast_404_unknown_name(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/indicadores/BOGUS/forecast").mock(
+            return_value=httpx.Response(404, json={"title": "Not Found", "status": 404})
+        )
+        resource = AsyncIndicadoresResource(async_client)
+        with pytest.raises(NotFoundError):
+            await resource.forecast("BOGUS")
+
+    async def test_forecast_503_model_not_provisioned(
+        self, base_url: str, api_key: str, respx_mock: respx.MockRouter
+    ) -> None:
+        """Async mirror of the 503 capacity-absence branch (no retry sleeps)."""
+        respx_mock.get("/indicadores/UF/forecast").mock(
+            return_value=httpx.Response(
+                503,
+                headers={"Retry-After": "3600"},
+                json={"detail": "forecast model not provisioned"},
+            )
+        )
+        client = AsyncCerberusClient(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=2.0,
+            retry=RetryConfig(max_attempts=1),
+        )
+        try:
+            resource = AsyncIndicadoresResource(client)
+            with pytest.raises(ServerError) as excinfo:
+                await resource.forecast("UF")
+            assert excinfo.value.status == 503
+        finally:
+            await client.close()
 
 
 # ---------------------------------------------------------------------------

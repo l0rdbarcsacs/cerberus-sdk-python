@@ -29,16 +29,25 @@ import builtins
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, Literal
 
-from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
+from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource, _encode_id
 
 __all__ = [
     "AsyncRegulationsResource",
     "RegulationFramework",
+    "RegulationType",
     "RegulationsResource",
 ]
 
 RegulationFramework = Literal["Ley21521", "Ley21719", "NCG514", "SOX", "MiFID"]
 """Supported regulatory frameworks recognised by the Cerberus API."""
+
+RegulationType = Literal["ncg", "circular", "oficio", "other"]
+"""Normative-document types recognised by the Cerberus API.
+
+Mirrors the backend ``RegulationType`` enum. ``dictamen`` / ``instructivo``
+are documented as forward-compatible values but are not emitted yet, so they
+are intentionally absent from this literal.
+"""
 
 
 def _build_params(**raw: Any) -> dict[str, Any] | None:
@@ -94,6 +103,23 @@ class RegulationsResource(BaseResource):
         body = self._client._request("GET", f"{self._path_prefix}/search", params=query)
         return self._extract_items(body)
 
+    def lineage(self, regulation_id: str) -> dict[str, Any]:
+        """Return the supersession chain for a single regulation.
+
+        Issues ``GET /regulations/<regulation_id>/lineage`` and returns the
+        aggregate object verbatim — ``{"id", "supersedes", "superseded_by"}``,
+        where each entry of ``supersedes`` / ``superseded_by`` is a
+        ``RegulationLineageRef`` (``id``, ``type``, ``title``,
+        ``ncg_number``, ``circular_number``, ``estado``). The response is a
+        single JSON object, not a paginated list or envelope.
+
+        ``regulation_id`` must be a parseable UUID server-side; a non-UUID
+        value yields a ``422`` from the API. The path segment is
+        percent-encoded so callers can pass the raw identifier.
+        """
+        path = f"{self._path_prefix}/{_encode_id(regulation_id)}/lineage"
+        return self._client._request("GET", path)
+
     def iter_all(self, **filters: Any) -> Iterator[dict[str, Any]]:
         """Cursor-paginate through every matching regulation record.
 
@@ -132,6 +158,11 @@ class AsyncRegulationsResource(AsyncBaseResource):
         query.update({k: v for k, v in params.items() if v is not None})
         body = await self._client._request("GET", f"{self._path_prefix}/search", params=query)
         return self._extract_items(body)
+
+    async def lineage(self, regulation_id: str) -> dict[str, Any]:
+        """Async variant of :meth:`RegulationsResource.lineage`."""
+        path = f"{self._path_prefix}/{_encode_id(regulation_id)}/lineage"
+        return await self._client._request("GET", path)
 
     def iter_all(self, **filters: Any) -> AsyncIterator[dict[str, Any]]:
         """Async variant of :meth:`RegulationsResource.iter_all`.

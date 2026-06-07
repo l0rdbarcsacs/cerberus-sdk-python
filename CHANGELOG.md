@@ -5,6 +5,59 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.0] — 2026-06-07
+
+Full API coverage. 18 new typed resources + 4 extended resources wrap the
+remaining **54 production endpoints**, taking SDK ↔ API drift to **0 uncovered
+/ 0 rotten** (109 covered, verified against the live prod OpenAPI). Every method
+ships sync + async, strict-`mypy` clean, with `respx`-mocked unit tests
+(coverage ≥ 95%).
+
+### Added — new resources
+
+- **`client.graph`** — entity knowledge graph: `ego_network`, `shortest_path`,
+  `node_centrality`, `centrality_distribution`, `centrality_batch`,
+  `edge_detail`, `edge_transactions`, `nodes_attrs` (scope `graph:read`;
+  `centrality_distribution` is the public `entities:read` aggregate).
+- **`client.copilot`** — grounded RAG copilot: `ask` / `ask_public` (cite-or-
+  refuse JSON), `ask_stream` / `ask_public_stream` (Server-Sent-Events parsed
+  into `CopilotStreamEvent`), `upload_document` (multipart PDF/TXT) and
+  `get_document`.
+- **`client.financials`** — IFRS financials: `get_summary`, `get_ratios`,
+  `get_distress`, `get_benchmark`, `get_timeseries`, plus the public aggregates
+  `get_distress_histogram` and `get_sector_stats`.
+- **`client.ratings`** — credit ratings: `get_entity_ratings`,
+  `get_entity_ratings_timeline`, `get_ratings_distribution`,
+  `get_ratings_migration`.
+- **`client.screening`** — sanctions exposure: `get_exposure`,
+  `get_exposure_distribution`.
+- **`client.hechos`** — hechos esenciales: `list_hechos`, `list_hechos_bancos`,
+  `list_hechos_otros`, `hechos_event_type_distribution`.
+- **`client.fondos`**, **`client.grupos`**, **`client.insider`**,
+  **`client.ipsa`** (panel/ticker risk + `event_study`), **`client.banking`**,
+  **`client.norms`** (top-cited + citations), **`client.diario`**,
+  **`client.ran`**, **`client.rentas`**, **`client.scomp`**, **`client.sii`**,
+  and **`client.watchlist`** (CRUD).
+
+### Added — extended resources
+
+- **`client.indicadores.forecast(name)`** — TimesFM forecast series.
+- **`client.regulations.lineage(regulation_id)`** — norm lineage.
+- **`client.persons.co_directors(rut)`** — co-directorship network.
+- **`client.sanctions.top_entities()`** — most-sanctioned entities.
+
+### Added — exports
+
+New typed enums/models at the package root: `CopilotStreamEvent`,
+`HechoEventType`, `DiarioEventoTipo`, `FondosPeriodicidad`,
+`InsiderSubjectType`, `RatingsDistributionType`, `RegulationType`,
+`SancionEstado`.
+
+### Fixed
+
+- The prod `/entities` collection path dropped its trailing slash; the drift
+  coverage map now tracks `/entities` (was a rotten `/entities/` entry).
+
 ## [v0.6.0] — 2026-04-28
 
 API contract realignment — three resources had drifted away from the

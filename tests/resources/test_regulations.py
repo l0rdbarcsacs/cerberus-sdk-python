@@ -23,6 +23,23 @@ from cerberus_compliance.resources.regulations import (
     RegulationsResource,
 )
 
+REG_UUID = "11111111-1111-4111-8111-111111111111"
+
+LINEAGE_BODY: dict[str, Any] = {
+    "id": REG_UUID,
+    "supersedes": [
+        {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "type": "ncg",
+            "title": "NCG 461",
+            "ncg_number": 461,
+            "circular_number": None,
+            "estado": "derogada",
+        }
+    ],
+    "superseded_by": [],
+}
+
 # ---------------------------------------------------------------------------
 # Meta / typing sanity
 # ---------------------------------------------------------------------------
@@ -557,3 +574,108 @@ class TestRegulationsSearch:
         )
         resource = AsyncRegulationsResource(async_client)
         assert await resource.search("aml") == [{"id": "reg_items_2"}]
+
+
+# ---------------------------------------------------------------------------
+# B5 — /regulations/{regulation_id}/lineage (supersession chain)
+# ---------------------------------------------------------------------------
+
+
+class TestRegulationsLineage:
+    def test_lineage_hits_lineage_endpoint(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(f"/regulations/{REG_UUID}/lineage").mock(
+            return_value=httpx.Response(200, json=LINEAGE_BODY)
+        )
+        resource = RegulationsResource(sync_client)
+        result = resource.lineage(REG_UUID)
+        assert result == LINEAGE_BODY
+        assert result["supersedes"][0]["ncg_number"] == 461
+        assert result["superseded_by"] == []
+        assert route.called
+        # No query string, single-object response (not an envelope/list).
+        assert route.calls.last.request.url.query == b""
+
+    def test_lineage_percent_encodes_path_segment(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        # A path-traversal attempt must be encoded into a single segment.
+        route = respx_mock.get("/regulations/..%2Fadmin/lineage").mock(
+            return_value=httpx.Response(
+                200, json={"id": "x", "supersedes": [], "superseded_by": []}
+            )
+        )
+        resource = RegulationsResource(sync_client)
+        result = resource.lineage("../admin")
+        assert result["id"] == "x"
+        assert route.called
+
+    def test_lineage_404_raises_cerberus_api_error(
+        self,
+        sync_client: CerberusClient,
+        respx_mock: respx.MockRouter,
+        problem_json: Any,
+    ) -> None:
+        respx_mock.get(f"/regulations/{REG_UUID}/lineage").mock(
+            return_value=httpx.Response(
+                404,
+                json=problem_json(
+                    status=404,
+                    title="Not Found",
+                    detail=f"Regulation '{REG_UUID}' not found",
+                ),
+                headers={"Content-Type": "application/problem+json"},
+            )
+        )
+        resource = RegulationsResource(sync_client)
+        with pytest.raises(CerberusAPIError) as excinfo:
+            resource.lineage(REG_UUID)
+        assert excinfo.value.status == 404
+
+    async def test_async_lineage_hits_lineage_endpoint(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(f"/regulations/{REG_UUID}/lineage").mock(
+            return_value=httpx.Response(200, json=LINEAGE_BODY)
+        )
+        resource = AsyncRegulationsResource(async_client)
+        result = await resource.lineage(REG_UUID)
+        assert result == LINEAGE_BODY
+        assert route.called
+        assert route.calls.last.request.url.query == b""
+
+    async def test_async_lineage_percent_encodes_path_segment(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/regulations/..%2Fadmin/lineage").mock(
+            return_value=httpx.Response(
+                200, json={"id": "x", "supersedes": [], "superseded_by": []}
+            )
+        )
+        resource = AsyncRegulationsResource(async_client)
+        result = await resource.lineage("../admin")
+        assert result["id"] == "x"
+        assert route.called
+
+    async def test_async_lineage_404_raises_cerberus_api_error(
+        self,
+        async_client: AsyncCerberusClient,
+        respx_mock: respx.MockRouter,
+        problem_json: Any,
+    ) -> None:
+        respx_mock.get(f"/regulations/{REG_UUID}/lineage").mock(
+            return_value=httpx.Response(
+                404,
+                json=problem_json(
+                    status=404,
+                    title="Not Found",
+                    detail=f"Regulation '{REG_UUID}' not found",
+                ),
+                headers={"Content-Type": "application/problem+json"},
+            )
+        )
+        resource = AsyncRegulationsResource(async_client)
+        with pytest.raises(CerberusAPIError) as excinfo:
+            await resource.lineage(REG_UUID)
+        assert excinfo.value.status == 404
