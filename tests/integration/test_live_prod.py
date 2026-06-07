@@ -34,9 +34,7 @@ from cerberus_compliance import (
 )
 
 CERBERUS_API_KEY = os.getenv("CERBERUS_API_KEY")
-LIVE_BASE_URL = os.getenv(
-    "CERBERUS_BASE_URL", "https://compliance.cerberus.cl/v1"
-)
+LIVE_BASE_URL = os.getenv("CERBERUS_BASE_URL", "https://compliance.cerberus.cl/v1")
 
 # Anchor RUT seeded in the prod corpus (P5 seed script): Falabella.
 FALABELLA_RUT = "96.505.760-9"
