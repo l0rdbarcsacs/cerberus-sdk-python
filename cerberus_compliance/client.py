@@ -101,6 +101,7 @@ from cerberus_compliance.resources.kyb import (
     AsyncKYBResource,
     KYBResource,
 )
+from cerberus_compliance.resources.lei import AsyncLeiResource, LeiResource
 from cerberus_compliance.resources.normativa import (
     AsyncNormativaResource,
     NormativaResource,
@@ -330,6 +331,7 @@ class CerberusClient:
         # v0.4.0 — 9 new resources (P5.3)
         self.resoluciones = ResolucionesResource(self)
         self.opas = OPAsResource(self)
+        self.lei = LeiResource(self)
         self.tdc = TDCResource(self)
         self.art12 = Art12Resource(self)
         self.art20 = Art20Resource(self)
@@ -542,6 +544,7 @@ class AsyncCerberusClient:
         # v0.4.0 — 9 new resources (P5.3)
         self.resoluciones = AsyncResolucionesResource(self)
         self.opas = AsyncOPAsResource(self)
+        self.lei = AsyncLeiResource(self)
         self.tdc = AsyncTDCResource(self)
         self.art12 = AsyncArt12Resource(self)
         self.art20 = AsyncArt20Resource(self)
