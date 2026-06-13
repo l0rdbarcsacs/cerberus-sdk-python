@@ -5,6 +5,22 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.8.0] — 2026-06-12
+
+Restores the **0-drift** invariant broken by the backend's `/v1/lei` router: the
+GLEIF **Legal Entity Identifier** registry (2 endpoints, ~1 663 records) was
+shipped without its mirror SDK resource. Coverage is back to **0 uncovered / 0
+rotten** (111 covered, verified against the live prod OpenAPI).
+
+### Added — new resource
+
+- **`client.lei`** — GLEIF LEI registry over `cmf_lei_records`: `list`
+  (filters `jurisdiction`, `registration_status`, `rut`; `limit`/`offset`),
+  `get(lei)` (case-insensitive 20-char code; 404 when absent) and `iter_all`.
+  Unlike the cursor-paginated collections, `/lei` paginates by `limit`/`offset`
+  (`{items, total, limit, offset}` envelope), so `iter_all` walks by offset.
+  Ships sync + async, strict-`mypy` clean, with `respx`-mocked unit tests.
+
 ## [v0.7.0] — 2026-06-07
 
 Full API coverage. 18 new typed resources + 4 extended resources wrap the

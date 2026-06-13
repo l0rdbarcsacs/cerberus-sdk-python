@@ -124,6 +124,9 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     # coverage table so the drift report stays 0-rotten.
     ("GET", "/resoluciones"): ("resoluciones", "list"),
     ("GET", "/opas"): ("opas", "list"),
+    # SDK-01 — GLEIF LEI registry (cmf_lei_records); offset-paginated.
+    ("GET", "/lei"): ("lei", "list"),
+    ("GET", "/lei/{lei}"): ("lei", "get"),
     ("GET", "/tdc"): ("tdc", "list"),
     ("GET", "/art12"): ("art12", "list"),
     ("GET", "/art20"): ("art20", "list"),

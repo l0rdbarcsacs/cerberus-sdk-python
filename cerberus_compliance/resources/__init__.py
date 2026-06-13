@@ -72,6 +72,7 @@ from cerberus_compliance.resources.kyb import (
     AsyncKYBResource,
     KYBResource,
 )
+from cerberus_compliance.resources.lei import AsyncLeiResource, LeiResource
 from cerberus_compliance.resources.normativa import (
     AsyncNormativaResource,
     NormativaResource,
@@ -174,6 +175,7 @@ __all__ = [
     "AsyncIndicadoresResource",
     "AsyncInsiderResource",
     "AsyncKYBResource",
+    "AsyncLeiResource",
     "AsyncNormativaConsultaResource",
     "AsyncNormativaHistoricResource",
     "AsyncNormativaResource",
@@ -215,6 +217,7 @@ __all__ = [
     "InsiderResource",
     "InsiderSubjectType",
     "KYBResource",
+    "LeiResource",
     "NormativaConsultaEstado",
     "NormativaConsultaResource",
     "NormativaHistoricResource",
