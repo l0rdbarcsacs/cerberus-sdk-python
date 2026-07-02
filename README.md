@@ -23,7 +23,7 @@ Los dominios de datos que puede consumir, en lenguaje de cliente, incluyen:
 - **Normativa y regulaciones**: cuerpo normativo de la CMF (leyes, NCG, circulares, oficios), su aplicabilidad por entidad, versiones históricas y consultas públicas en trámite.
 - **Registros regulatorios**: hechos esenciales (Art. 12 y Art. 20 de la Ley 18.045), OPAs, TDC, comunicaciones, dictámenes y resoluciones de la CMF.
 - **Registro Público de Servicios Financieros (RPSF, Ley 21.521)**: prestadores autorizados, sus servicios y estado de inscripción.
-- **ESG (NCG 461) y temas SASB**, **indicadores macro y financieros** (UF, UTM, USD, EUR, IPC, TMC, entre otros) y **precios bursátiles** de instrumentos chilenos e internacionales.
+- **ESG (NCG 461) y temas SASB**, **indicadores macro BCCh** (por `series_id`, ~25 000 series del Banco Central de Chile) y **precios bursátiles** de instrumentos chilenos e internacionales.
 - **Búsqueda semántica universal** en lenguaje natural sobre todo el corpus documental de la CMF, **copiloto regulatorio** con respuestas fundamentadas y citas verificadas a la fuente, y un **grafo de conocimiento** de entidades (co-direcciones, propiedad y grupos económicos).
 
 La plataforma está construida para Chile bajo la Ley 21.719 de protección de datos personales, con cifrado de datos personales en reposo y flujo de solicitudes ARSCO+.
@@ -249,7 +249,7 @@ Cada recurso se expone como un atributo del cliente (`client.<attr>`). Los recur
 | `client.rpsf` | `GET /rpsf`, `/rpsf/{id}`, `/rpsf/by-entity/{entity_id}`, `/rpsf/by-servicio/{servicio}` | `list(**params)`, `get(id_)`, `by_entity(id_)`, `by_servicio(servicio)` | Registro Público de Servicios Financieros (Ley 21.521): prestadores autorizados, servicios y estado de inscripción. |
 | `client.esg` | `GET /esg/{rut}`, `/esg`, `/esg/rankings` | `get(rut)`, `list(**params)`, `rankings(*, indicator, year, top_n=20, direction='desc', industry=None)` | Perfil ambiental, social y de gobernanza (ESG) según la NCG 461, con rankings por indicador. |
 | `client.sasb_topics` | `GET /sasb-topics` | `list(*, industry=None, limit=None, offset=None)`, `iter_all(*, industry=None)` | Catálogo de referencia de temas de divulgación SASB por industria. |
-| `client.indicadores` | `GET /indicadores/{name}`, `/indicadores/{name}?from=&to=` | `get(name, date=None)`, `history(name, from_, to)` | Indicadores monetarios, de inflación y macroeconómicos (UF, UTM, USD, EUR, IPC, TMC, TPM, IMACEC, PIB...) como valores exactos en string. |
+| `client.indicadores` | `GET /indicadores/{series_id}`, `/indicadores/{series_id}?from=&to=`, `/indicadores/{series_id}/forecast`, `/indicadores/buscar` | `get(series_id, date=None)`, `history(series_id, from_, to)`, `forecast(series_id, horizon=None)`, `buscar(q=, frequency=, family=, limit=, offset=)` | Indicadores macro BCCh por `series_id` (código BCCh, p. ej. `F073.UFF.PRE.Z.D`); `title_es` es la etiqueta legible; descubrimiento por `buscar` sobre ~25k series; valores como string exacto. |
 | `client.equity` | `GET /equity/{ticker}/prices` | `prices(ticker, *, from_=None, to=None)` | Series de precios bursátiles OHLCV de tickers chilenos e internacionales. |
 
 ### Operación y plataforma
@@ -324,7 +324,7 @@ Desde la versión **0.7.0**, el SDK envuelve la **totalidad de la superficie pú
 | `client.diario` · `client.ran` · `client.rentas` · `client.scomp` · `client.sii` | `list(...)` / `list_*(...)` (+ `iter_all` donde aplica) | Diario Oficial, RAN, rentas vitalicias, estadísticas SCOMP y nóminas SII. |
 | `client.watchlist` | `list()`, `create(...)`, `get(entry_id)`, `delete(entry_id)` | Listas de seguimiento (CRUD). |
 
-Además, recursos existentes ganaron métodos: `client.indicadores.forecast(name)` (proyección), `client.regulations.lineage(id)`, `client.persons.co_directors(rut)` y `client.sanctions.top_entities()`.
+Además, recursos existentes ganaron métodos: `client.indicadores.forecast(series_id)` (proyección), `client.regulations.lineage(id)`, `client.persons.co_directors(rut)` y `client.sanctions.top_entities()`.
 
 ### Copiloto: respuesta directa o por streaming
 
@@ -535,7 +535,7 @@ El repositorio incluye ejemplos ejecutables en `examples/`:
 | `normativa_explore.py` | Explora el catálogo de textos regulatorios mediante `client.normativa`. |
 | `normativa_consulta_basic.py` | Navega las consultas de normativa de la CMF (proyectos abiertos y cerrados). |
 | `rpsf_explore.py` | Explora el Registro Público de Servicios Financieros (RPSF). |
-| `indicadores_basic.py` | Obtiene indicadores de la CMF (UF, UTM, USD, EUR, IPC, TMC). |
+| `indicadores_basic.py` | Obtiene indicadores macro BCCh por `series_id` (UF, USD) y descubre series con `buscar`. |
 | `equity_prices.py` | Descarga el OHLCV diario del IPSA-25 mediante el endpoint de equity. |
 | `sasb_topics_browse.py` | Navega la taxonomía de temas SASB Standards 2018. |
 | `cursor_pagination.py` | Tres idiomas de paginación por cursor sobre `iter_all`. |
