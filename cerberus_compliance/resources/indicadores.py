@@ -33,54 +33,15 @@ Example
 from __future__ import annotations
 
 from datetime import date as _date
-from typing import Any, Literal
+from typing import Any
 from urllib.parse import quote
 
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 
 __all__ = [
     "AsyncIndicadoresResource",
-    "BCentralIndicatorName",
     "IndicadoresResource",
-    "IndicatorName",
-    "SbifIndicatorName",
 ]
-
-SbifIndicatorName = Literal["UF", "UTM", "USD", "EUR", "IPC", "TMC"]
-"""SBIF-published series available from the CMF Indicadores API v3.
-
-Includes monetary indices (``UF``, ``UTM``), spot FX (``USD``, ``EUR``),
-inflation (``IPC``) and the regulatory ceiling rate (``TMC``).
-"""
-
-BCentralIndicatorName = Literal["TPM", "IMACEC", "IMACEC_MIN", "IPC_BCH", "PIB"]
-"""Banco Central de Chile macro series.
-
-* ``TPM`` — Tasa Política Monetaria (daily, % annualised).
-* ``IMACEC`` — Índice Mensual de Actividad Económica (monthly).
-* ``IMACEC_MIN`` — IMACEC sector minero (monthly).
-* ``IPC_BCH`` — IPC as published by BCCh (monthly).
-* ``PIB`` — Producto Interno Bruto, real terms (quarterly).
-"""
-
-IndicatorName = Literal[
-    "UF",
-    "UTM",
-    "USD",
-    "EUR",
-    "IPC",
-    "TMC",
-    "TPM",
-    "IMACEC",
-    "IMACEC_MIN",
-    "IPC_BCH",
-    "PIB",
-]
-"""Union of every indicator name accepted by :class:`IndicadoresResource`.
-
-Equivalent to ``SbifIndicatorName | BCentralIndicatorName``; spelled
-out as a flat ``Literal`` to keep mypy reveal-type output ergonomic.
-"""
 
 
 def _clean_params(raw: dict[str, Any]) -> dict[str, Any] | None:

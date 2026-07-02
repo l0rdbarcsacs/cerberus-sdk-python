@@ -77,10 +77,7 @@ from cerberus_compliance.resources.hechos import (
 )
 from cerberus_compliance.resources.indicadores import (
     AsyncIndicadoresResource,
-    BCentralIndicatorName,
     IndicadoresResource,
-    IndicatorName,
-    SbifIndicatorName,
 )
 from cerberus_compliance.resources.insider import (
     AsyncInsiderResource,
@@ -238,7 +235,6 @@ __all__ = [
     "AsyncWatchlistResource",
     "AsyncWebhooksResource",
     "AuthError",
-    "BCentralIndicatorName",
     "BankingResource",
     "CerberusAPIError",
     "CerberusClient",
@@ -262,7 +258,6 @@ __all__ = [
     "HechosResource",
     "IPSAResource",
     "IndicadoresResource",
-    "IndicatorName",
     "InsiderResource",
     "InsiderSubjectType",
     "KYBResource",
@@ -291,7 +286,6 @@ __all__ = [
     "SancionEstado",
     "SanctionsResource",
     "SasbTopicsResource",
-    "SbifIndicatorName",
     "ScreeningResource",
     "SearchClient",
     "SearchDateRange",
