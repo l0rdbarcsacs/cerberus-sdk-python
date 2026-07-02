@@ -252,14 +252,18 @@ class TestProdIndicadores:
         assert isinstance(rows, list)
 
     def test_retired_name_404s(self, live_client: CerberusClient) -> None:
-        """Friendly names are retired: ``get("UF")`` must raise (404).
+        """Friendly names are retired: ``get("UF")`` must raise ``NotFoundError``.
 
         Since Plan A (series_id-canonical) is deployed, the friendly name
         ``"UF"`` no longer resolves — the canonical handle is the BCCh
-        ``series_id``. This is permanent, expected behaviour, so the 404
-        is a strict PASS (never xfail): it proves the retirement is live.
+        ``series_id``. This is permanent, designed behaviour, so the 404
+        is a strict PASS (never xfail) and the expected exception is
+        exactly :class:`NotFoundError` — a broader
+        ``(NotFoundError, CerberusAPIError)`` tuple would be degenerate
+        (``NotFoundError`` subclasses ``CerberusAPIError``, so any API
+        error would pass) and stop proving the retirement is live.
         """
-        with pytest.raises((NotFoundError, CerberusAPIError)):
+        with pytest.raises(NotFoundError):
             live_client.indicadores.get("UF")
 
     def test_list_catalog_returns_tracked_series(self, live_client: CerberusClient) -> None:

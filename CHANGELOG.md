@@ -19,10 +19,13 @@ the backend's `/v1/lei` router.
   **`.history(series_id, from_, to)`** and
   **`.forecast(series_id, *, horizon=None)`** now take a BCCh `series_id`
   (e.g. `F073.UFF.PRE.Z.D`) instead of a friendly name. The friendly names
-  (`UF`, `UTM`, `USD`, `EUR`, `IPC`, `TMC`, `TPM`, `IMACEC`, `IMACEC_MIN`,
+  (`UF`, `UTM`, `USD`, `EUR`, `IPC`, `TPM`, `IMACEC`, `IMACEC_MIN`,
   `PIB`) and `IPC_BCH` are retired and now return **404** from the API. The
-  one non-BCCh special handle is the lowercase `tmc` (Tasa Máxima
-  Convencional, CMF/SBIF-only).
+  one exception is `TMC`: it lives on as the lowercase-canonical `tmc`
+  handle (Tasa Máxima Convencional, the sole non-BCCh series,
+  CMF/SBIF-only), and the backend matches it case-insensitively — so
+  `GET /v1/indicadores/TMC` still resolves (200, echoed back as
+  `name: "tmc"`) rather than 404ing.
 
 ### Removed
 

@@ -348,6 +348,13 @@ class IndicadoresResource(BaseResource):
         All parameters are keyword-only and optional — searching by
         frequency/family alone (no ``q``) is valid.
 
+        ``limit``/``offset`` are validated **server-side** (the API
+        declares ``1 <= limit <= 100`` and ``offset >= 0``); out-of-range
+        values are rejected with a clean 422 naming the offending param
+        (e.g. ``limit=-1`` → ``"Input should be greater than or equal
+        to 1"``), surfaced as :class:`ValidationError`. No client-side
+        clamping is applied — the server error is authoritative.
+
         Returns:
             The list of matching items, unwrapped from the server
             envelope for ergonomics — each element is
@@ -355,6 +362,10 @@ class IndicadoresResource(BaseResource):
             "tracked", "has_forecast"}``. The server ranks ``tracked``
             series first. Pass a resulting ``series_id`` to
             :meth:`get` / :meth:`forecast`.
+
+        Raises:
+            ValidationError: ``limit``/``offset`` out of range, or an
+                unknown ``frequency`` value (server 422).
         """
         path = f"{self._path_prefix}/buscar"
         params = _clean_params(

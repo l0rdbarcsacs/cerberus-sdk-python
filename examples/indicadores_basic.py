@@ -123,15 +123,18 @@ def _run(client: CerberusClient) -> None:
     _print_header("5. indicadores.buscar(q='cobre') — discovery over ~25k BCCh series")
     matches = client.indicadores.buscar(q="cobre", limit=5)
     print(f"  matches returned: {len(matches)}")
+    if not matches:
+        print("  (no series matched 'cobre')")
+        return
     for row in matches[:3]:
         title = _fmt(row.get("title_es"))
         if len(title) > 56:
             title = f"{title[:53]}..."
         print(f"  - {_fmt(row.get('series_id')):38s} {title}")
-    if not matches:
-        print("  (no series matched 'cobre')")
+    discovered_id = matches[0].get("series_id")
+    if not isinstance(discovered_id, str) or not discovered_id:
+        print("  (first match carries no series_id — skipping get/forecast demo)")
         return
-    discovered_id = str(matches[0]["series_id"])
 
     _print_header(f"6. indicadores.get('{discovered_id}') — latest discovered value")
     try:

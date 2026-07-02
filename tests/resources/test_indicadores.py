@@ -91,22 +91,25 @@ class TestIndicadoresGet:
 
         ``urllib.parse.quote`` never percent-encodes ``.`` (unreserved),
         so ``F073.UFF.PRE.Z.D`` must reach the server literally — this is
-        the canonical-handle contract (series_id in, ``title_es`` out).
+        the canonical-handle contract (series_id in; the live wire echoes
+        it back under the ``name`` key, alongside ``title_es``).
         """
         route = respx_mock.get("/indicadores/F073.UFF.PRE.Z.D").mock(
             return_value=httpx.Response(
                 200,
                 json={
-                    "series_id": "F073.UFF.PRE.Z.D",
+                    "name": "F073.UFF.PRE.Z.D",
                     "title_es": "Unidad de fomento (UF)",
                     "value": "39421.73",
+                    "date": "2026-04-24",
+                    "source": "bcentral_api",
                 },
             )
         )
         resource = IndicadoresResource(sync_client)
         result = resource.get("F073.UFF.PRE.Z.D")
         assert route.called
-        assert result["series_id"] == "F073.UFF.PRE.Z.D"
+        assert result["name"] == "F073.UFF.PRE.Z.D"
         assert result["title_es"]
         # The dots must NOT be percent-encoded on the wire.
         assert route.calls.last.request.url.path.endswith("/indicadores/F073.UFF.PRE.Z.D")
@@ -579,6 +582,40 @@ class TestIndicadoresBuscar:
         results = resource.buscar(q="uf")
         assert len(results) == 1
         assert results[0]["series_id"] == "F073.UFF.PRE.Z.D"
+
+    def test_buscar_422_limit_out_of_range(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """``limit``/``offset`` validation is server-side by design.
+
+        The API declares ``1 <= limit <= 100`` / ``offset >= 0`` (FastAPI
+        ``ge``/``le``); out-of-range values come back as a clean 422 with
+        the offending param named, which the SDK surfaces verbatim as
+        :class:`ValidationError` — no client-side clamping.
+        """
+        respx_mock.get("/indicadores/buscar", params={"q": "cobre", "limit": "-1"}).mock(
+            return_value=httpx.Response(
+                422,
+                json={
+                    "type": "about:blank",
+                    "title": "Validation error",
+                    "status": 422,
+                    "detail": "Request validation failed. See 'errors' for details.",
+                    "errors": [
+                        {
+                            "type": "greater_than_equal",
+                            "loc": ["query", "limit"],
+                            "msg": "Input should be greater than or equal to 1",
+                            "input": "-1",
+                            "ctx": {"ge": 1},
+                        }
+                    ],
+                },
+            )
+        )
+        resource = IndicadoresResource(sync_client)
+        with pytest.raises(ValidationError):
+            resource.buscar(q="cobre", limit=-1)
 
     def test_buscar_empty_returns_empty_list(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
