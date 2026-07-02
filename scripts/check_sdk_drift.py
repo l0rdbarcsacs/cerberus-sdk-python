@@ -111,12 +111,21 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/normativa/{regulation_id}/mercado"): ("normativa", "mercado"),
     # /normativa-consulta (P5.2 G9 — early-warning regulatory consultations)
     ("GET", "/normativa-consulta"): ("normativa_consulta", "list"),
-    # /indicadores (P5.2 G8 — CMF Indicadores API v3 proxy: UF/UTM/USD/EUR/IPC/TMC).
-    # The server exposes a single ``{name}`` path template for both the
-    # single-date lookup (``?date=``) and the historical range
-    # (``?periodo=``); the SDK splits that into ``get()`` + ``history()``
-    # but both land on the same OpenAPI entry.
-    ("GET", "/indicadores/{name}"): ("indicadores", "get"),
+    # /indicadores (P5.2 G8 → series_id-canonical since 0.8.0 — BCCh ~25k
+    # series proxy). The canonical handle is the BCCh ``series_id`` (e.g.
+    # ``F073.UFF.PRE.Z.D``); friendly names (``UF``, ``IPC``, …) are retired
+    # and 404 in prod. The server exposes a single ``{series_id}`` path
+    # template for both the single-date lookup (``?date=``) and the
+    # historical range (``?from=&to=``); the SDK splits that into ``get()``
+    # + ``history()`` but both land on the same OpenAPI entry. Discovery is
+    # ``GET /indicadores/buscar``.
+    ("GET", "/indicadores/{series_id}"): ("indicadores", "get"),
+    ("GET", "/indicadores/buscar"): ("indicadores", "buscar"),
+    # 0.8.0 — featured-catalog listing + multi-series comparison (both are
+    # series_id-canonical surfaces added server-side with the Phase 2.x
+    # indicadores uplift).
+    ("GET", "/indicadores"): ("indicadores", "list"),
+    ("GET", "/indicadores/compare"): ("indicadores", "compare"),
     # v0.4.0 — P5.3 nine new resources + universal semantic search.
     # Per-id ``GET /{resource}/{id}`` endpoints are NOT exposed in prod; the
     # corresponding ``ResourcesResource.get`` SDK methods raise
@@ -183,7 +192,7 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/hechos/event-types"): ("hechos", "hechos_event_type_distribution"),
     ("GET", "/hechos/bancos"): ("hechos", "list_hechos_bancos"),
     ("GET", "/hechos/otros"): ("hechos", "list_hechos_otros"),
-    ("GET", "/indicadores/{name}/forecast"): ("indicadores", "forecast"),
+    ("GET", "/indicadores/{series_id}/forecast"): ("indicadores", "forecast"),
     ("GET", "/insider/{rut_or_persona}/profile"): ("insider", "get_profile"),
     ("GET", "/ipsa/risk-panel"): ("ipsa", "risk_panel"),
     ("GET", "/ipsa/{ticker}/risk"): ("ipsa", "ticker_risk"),
@@ -243,6 +252,38 @@ IGNORED_PREFIXES: tuple[str, ...] = (
     "/auth/",
 )
 
+# Endpoints acknowledged as live-but-unwrapped. Unlike IGNORED_PATHS these
+# ARE user-facing ``/v1`` surfaces; they are listed here explicitly (with a
+# reason) so the weekly drift cron does not page on a *known* backlog while
+# still failing hard on any *new* endpoint that shows up unannounced.
+#
+#   * ``/copilot/conversations*`` (6 endpoints) — the Telar multi-device
+#     conversation-sync surface. Payloads are client-side-encrypted blobs
+#     produced by the web frontend; wrapping them in the SDK has no
+#     standalone value (an SDK consumer cannot produce or read the
+#     ciphertext). Deliberately not wrapped.
+#   * ``/legal/search``, ``/regulatory-impact/{impact_id}``,
+#     ``/regulatory-subscriptions`` (GET+PUT) — new regulatory surfaces
+#     shipped server-side after 0.7.0; SDK wrappers are a follow-on
+#     release (out of scope for the 0.8.0 series_id retype).
+#
+# Contract: keep this table SHRINKING. Every entry removed here must land
+# as a RESOURCE_COVERAGE entry + SDK method in the same PR.
+DEFERRED_COVERAGE: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", "/copilot/conversations"),
+        ("POST", "/copilot/conversations"),
+        ("POST", "/copilot/conversations/import"),
+        ("GET", "/copilot/conversations/{conversation_id}"),
+        ("PATCH", "/copilot/conversations/{conversation_id}"),
+        ("DELETE", "/copilot/conversations/{conversation_id}"),
+        ("GET", "/legal/search"),
+        ("GET", "/regulatory-impact/{impact_id}"),
+        ("GET", "/regulatory-subscriptions"),
+        ("PUT", "/regulatory-subscriptions"),
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 # Data model                                                                  #
@@ -272,6 +313,10 @@ class DriftReport:
 
     ignored: list[Endpoint] = field(default_factory=list)
 
+    deferred: list[Endpoint] = field(default_factory=list)
+    """Live endpoints acknowledged in :data:`DEFERRED_COVERAGE` — reported
+    for visibility but not counted as drift (see the table's docstring)."""
+
     @property
     def has_drift(self) -> bool:
         """True when anything actionable (uncovered or rotten) was found."""
@@ -283,6 +328,7 @@ class DriftReport:
             "uncovered_api": [[e.method, e.path] for e in self.uncovered_api],
             "rotten_sdk": [list(t) for t in self.rotten_sdk],
             "ignored": [[e.method, e.path] for e in self.ignored],
+            "deferred": [[e.method, e.path] for e in self.deferred],
         }
 
 
@@ -370,8 +416,9 @@ def compute_drift(
     """Compare API endpoints against the SDK coverage table.
 
     Returns a :class:`DriftReport`. Every API endpoint is classified as
-    exactly one of ``covered`` / ``uncovered_api`` / ``ignored``. Every
-    SDK entry with no matching API endpoint becomes ``rotten_sdk``.
+    exactly one of ``covered`` / ``uncovered_api`` / ``ignored`` /
+    ``deferred``. Every SDK entry with no matching API endpoint becomes
+    ``rotten_sdk``.
     """
     report = DriftReport()
     api_keys = {e.key() for e in api_endpoints}
@@ -382,6 +429,8 @@ def compute_drift(
             continue
         if endpoint.key() in coverage:
             report.covered.append(endpoint)
+        elif endpoint.key() in DEFERRED_COVERAGE:
+            report.deferred.append(endpoint)
         else:
             report.uncovered_api.append(endpoint)
 
@@ -432,6 +481,7 @@ def _render_human(report: DriftReport) -> str:
     lines.append(f"Uncovered API : {len(report.uncovered_api)}")
     lines.append(f"Rotten SDK    : {len(report.rotten_sdk)}")
     lines.append(f"Ignored       : {len(report.ignored)}")
+    lines.append(f"Deferred      : {len(report.deferred)}")
     lines.append("")
 
     if report.rotten_sdk:
@@ -445,6 +495,13 @@ def _render_human(report: DriftReport) -> str:
         lines.append("UNCOVERED API (live paths with no SDK wrapper)")
         lines.append("-" * 72)
         for endpoint in report.uncovered_api:
+            lines.append(f"  {endpoint.method:6s} {endpoint.path}")
+        lines.append("")
+
+    if report.deferred:
+        lines.append("DEFERRED (live, acknowledged in DEFERRED_COVERAGE — not drift)")
+        lines.append("-" * 72)
+        for endpoint in report.deferred:
             lines.append(f"  {endpoint.method:6s} {endpoint.path}")
         lines.append("")
 

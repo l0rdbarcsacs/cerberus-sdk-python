@@ -39,6 +39,10 @@ LIVE_BASE_URL = os.getenv("CERBERUS_BASE_URL", "https://compliance.cerberus.cl/v
 # Anchor RUT seeded in the prod corpus (P5 seed script): Falabella.
 FALABELLA_RUT = "96.505.760-9"
 
+# Anchor BCCh series_id (canonical indicador handle since 0.8.0): the UF.
+# Friendly names ("UF", "IPC", ...) are retired and 404 in prod.
+UF_SERIES_ID = "F073.UFF.PRE.Z.D"
+
 pytestmark = pytest.mark.skipif(
     not CERBERUS_API_KEY,
     reason="CERBERUS_API_KEY not set; integration tests require prod access",
@@ -200,14 +204,14 @@ class TestProdNormativaConsulta:
 
 class TestProdIndicadores:
     def test_get_uf_latest(self, live_client: CerberusClient) -> None:
-        """Latest UF must come back as a dict with a string ``value``.
+        """Latest UF (by series_id) must come back as a dict with a ``value``.
 
         We do not assert a specific value (UF changes daily); we assert the
         plumbing is real and the payload shape matches the documented
         schema.
         """
         try:
-            uf = live_client.indicadores.get("UF")
+            uf = live_client.indicadores.get(UF_SERIES_ID)
         except NotFoundError:
             pytest.xfail("no UF value in current prod corpus")
         assert isinstance(uf, dict)
@@ -216,7 +220,7 @@ class TestProdIndicadores:
     def test_get_uf_on_pinned_date(self, live_client: CerberusClient) -> None:
         """Point-in-time lookup against the deep-research snapshot date."""
         try:
-            uf = live_client.indicadores.get("UF", date="2026-04-24")
+            uf = live_client.indicadores.get(UF_SERIES_ID, date="2026-04-24")
         except NotFoundError:
             pytest.xfail("UF not seeded for 2026-04-24 in current prod corpus")
         assert isinstance(uf, dict)
@@ -228,10 +232,64 @@ class TestProdIndicadores:
         the SDK contract, not the server corpus.
         """
         try:
-            series = live_client.indicadores.history("UF", from_="2026-04-01", to="2026-04-30")
+            series = live_client.indicadores.history(
+                UF_SERIES_ID, from_="2026-04-01", to="2026-04-30"
+            )
         except (NotFoundError, CerberusAPIError):
             pytest.xfail("prod indicadores history not populated")
         assert isinstance(series, list)
+
+    def test_buscar_returns_list(self, live_client: CerberusClient) -> None:
+        """Discovery via ``GET /indicadores/buscar`` must return a list.
+
+        The list may be empty on a sparse prod corpus — we exercise the
+        plumbing, not the corpus.
+        """
+        try:
+            rows = live_client.indicadores.buscar(q="cobre", limit=5)
+        except (NotFoundError, CerberusAPIError):
+            pytest.xfail("prod indicadores buscar not available")
+        assert isinstance(rows, list)
+
+    def test_retired_name_404s(self, live_client: CerberusClient) -> None:
+        """Friendly names are retired: ``get("UF")`` must raise (404).
+
+        Since Plan A (series_id-canonical) is deployed, the friendly name
+        ``"UF"`` no longer resolves — the canonical handle is the BCCh
+        ``series_id``. This is permanent, expected behaviour, so the 404
+        is a strict PASS (never xfail): it proves the retirement is live.
+        """
+        with pytest.raises((NotFoundError, CerberusAPIError)):
+            live_client.indicadores.get("UF")
+
+    def test_list_catalog_returns_tracked_series(self, live_client: CerberusClient) -> None:
+        """``GET /indicadores`` catalog rows carry the series_id in ``name``.
+
+        The tracked catalog is small but never empty in prod; each row's
+        ``name`` is the canonical ``series_id`` handle.
+        """
+        try:
+            rows = live_client.indicadores.list()
+        except CerberusAPIError:
+            pytest.xfail("prod indicadores catalog not available")
+        assert isinstance(rows, list)
+        if rows:
+            assert "name" in rows[0]
+            assert "title_es" in rows[0]
+
+    def test_compare_two_series(self, live_client: CerberusClient) -> None:
+        """``GET /indicadores/compare`` round-trip with two series_ids."""
+        try:
+            series = live_client.indicadores.compare(
+                [UF_SERIES_ID, "F073.TCO.PRE.Z.D"],
+                from_="2026-04-01",
+                to="2026-04-30",
+            )
+        except (NotFoundError, CerberusAPIError):
+            pytest.xfail("prod indicadores compare not populated for the range")
+        assert isinstance(series, list)
+        if series:
+            assert {s["name"] for s in series} <= {UF_SERIES_ID, "F073.TCO.PRE.Z.D"}
 
 
 # ---------------------------------------------------------------------------

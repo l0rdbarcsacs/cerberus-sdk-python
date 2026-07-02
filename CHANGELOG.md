@@ -5,21 +5,89 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.8.0] — 2026-06-12
+## [v0.8.0] — 2026-06-30
 
-Restores the **0-drift** invariant broken by the backend's `/v1/lei` router: the
-GLEIF **Legal Entity Identifier** registry (2 endpoints, ~1 663 records) was
-shipped without its mirror SDK resource. Coverage is back to **0 uncovered / 0
-rotten** (111 covered, verified against the live prod OpenAPI).
+The canonical handle for `client.indicadores` is now the BCCh **`series_id`**
+(e.g. `F073.UFF.PRE.Z.D` for the UF), opening the full ~25 000-series Banco
+Central de Chile statistical database behind a single discovery surface
+(`buscar`). This release also restores the **0-drift** invariant broken by
+the backend's `/v1/lei` router.
 
-### Added — new resource
+### Changed — breaking
 
+- **`client.indicadores.get(series_id, date=None)`**,
+  **`.history(series_id, from_, to)`** and
+  **`.forecast(series_id, *, horizon=None)`** now take a BCCh `series_id`
+  (e.g. `F073.UFF.PRE.Z.D`) instead of a friendly name. The friendly names
+  (`UF`, `UTM`, `USD`, `EUR`, `IPC`, `TMC`, `TPM`, `IMACEC`, `IMACEC_MIN`,
+  `PIB`) and `IPC_BCH` are retired and now return **404** from the API. The
+  one non-BCCh special handle is the lowercase `tmc` (Tasa Máxima
+  Convencional, CMF/SBIF-only).
+
+### Removed
+
+- The `SbifIndicatorName`, `BCentralIndicatorName` and `IndicatorName`
+  `Literal` types (top-level exports). The indicadores methods always
+  accepted plain `str`, so no call-site type changes are needed beyond the
+  handle itself.
+
+### Added
+
+- **`client.indicadores.buscar(*, q=None, frequency=None, family=None,
+  limit=None, offset=None)`** — series discovery over the ~25k-series BCCh
+  catalogue (`GET /indicadores/buscar`). Returns
+  `{series_id, title_es, frequency, source, tracked, has_forecast}` rows,
+  tracked series ranked first; feed a resulting `series_id` to
+  `get` / `history` / `forecast`.
+- Indicador responses now expose **`title_es`**, the human-readable Spanish
+  label for the series.
+- **`client.indicadores.list()`** — the featured (`tracked`) macro-indicator
+  catalog (`GET /indicadores`): one row per tracked series with coverage
+  metadata (`name` — the canonical `series_id` —, `title_es`, `source`,
+  `frequency`, `min_date`, `max_date`, `latest_value`, `latest_date`,
+  `has_forecast`).
+- **`client.indicadores.compare(series_ids, *, from_, to)`** — multi-series
+  comparison (`GET /indicadores/compare`): 2 to 6 `series_id` handles over a
+  shared `YYYY-MM-DD` range, returning one `{name, title_es, source, items}`
+  series per indicator. A bare `str` for `series_ids` is rejected client-side
+  (it would comma-join char by char); cardinality is validated server-side.
 - **`client.lei`** — GLEIF LEI registry over `cmf_lei_records`: `list`
   (filters `jurisdiction`, `registration_status`, `rut`; `limit`/`offset`),
   `get(lei)` (case-insensitive 20-char code; 404 when absent) and `iter_all`.
   Unlike the cursor-paginated collections, `/lei` paginates by `limit`/`offset`
   (`{items, total, limit, offset}` envelope), so `iter_all` walks by offset.
   Ships sync + async, strict-`mypy` clean, with `respx`-mocked unit tests.
+  Coverage is back to **0 uncovered / 0 rotten** (verified against the live
+  prod OpenAPI).
+
+### Migration
+
+Translate the retired friendly name to its `series_id` (13 series in total —
+`IPC` and `IPC_BCH` collapse onto the single official F074 CPI series), or
+discover one with `buscar`:
+
+| Nombre retirado | `series_id` canónico |
+|---|---|
+| `UF` | `F073.UFF.PRE.Z.D` |
+| `UTM` | `F073.UTR.PRE.Z.M` |
+| `USD` | `F073.TCO.PRE.Z.D` |
+| `EUR` | `F072.CLP.EUR.N.O.D` |
+| `IPC` / `IPC_BCH` | `F074.IPC.IND.Z.2023.C.M` |
+| `TMC` | `tmc` |
+| `TPM` | `F022.TPM.TIN.D001.NO.Z.D` |
+| `IMACEC` | `F032.ICF.IND.Z.Z.EP18.Z.Z.0.M` |
+| `IMACEC_MIN` | `F032.IMC.IND.Z.Z.EP18.03.Z.0.M` |
+| `IMACEC_NM` | `F032.IMC.IND.Z.Z.EP18.N03.Z.0.M` |
+| `PIB` | `F032.PIB.FLU.R.CLP.EP18.Z.Z.1.T` |
+| `IPSA` | `F013.IBC.IND.N.7.LAC.CL.CLP.BLO.D` |
+| `COBRE` | `F019.PPB.PRE.40.M` |
+
+### Deferred
+
+- The example notebooks (`03-sdk-grand-tour`, `04-top10-bancos-chile`,
+  `05-top10-telecoms-chile`, `06-fintechs-agfs-chile`) still reference the
+  retired friendly names; re-rendering them to `series_id` (with real inline
+  output) is a follow-on to this release.
 
 ## [v0.7.0] — 2026-06-07
 

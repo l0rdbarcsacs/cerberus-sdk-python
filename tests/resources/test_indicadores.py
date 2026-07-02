@@ -1,7 +1,8 @@
 """TDD tests for ``cerberus_compliance.resources.indicadores`` (P5.2 G8).
 
-The ``IndicadoresResource`` wraps ``/indicadores/{name}`` with two public
-affordances:
+The ``IndicadoresResource`` wraps ``/indicadores/{series_id}`` (the
+canonical handle is the dotted BCCh ``series_id``, e.g.
+``F073.UFF.PRE.Z.D``) with two public affordances:
 
 * :meth:`IndicadoresResource.get` — single-date lookup (no ``date`` arg
   means "latest").
@@ -16,6 +17,8 @@ the ``IndicadorSeries`` schema).
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 import httpx
 import pytest
 import respx
@@ -25,10 +28,7 @@ from cerberus_compliance.errors import NotFoundError, ServerError, ValidationErr
 from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 from cerberus_compliance.resources.indicadores import (
     AsyncIndicadoresResource,
-    BCentralIndicatorName,
     IndicadoresResource,
-    IndicatorName,
-    SbifIndicatorName,
 )
 from cerberus_compliance.retry import RetryConfig
 
@@ -63,24 +63,53 @@ class TestIndicadoresGet:
     def test_get_latest_no_date_param(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        route = respx_mock.get("/indicadores/UF").mock(
+        route = respx_mock.get("/indicadores/F073.UFF.PRE.Z.D").mock(
             return_value=httpx.Response(
                 200,
                 json={
-                    "name": "UF",
+                    "name": "F073.UFF.PRE.Z.D",
                     "date": "2026-04-24",
                     "value": "39421.73",
-                    "currency": "CLP",
+                    "source": "bcentral_api",
+                    "title_es": "Unidad de fomento (UF)",
                 },
             )
         )
         resource = IndicadoresResource(sync_client)
-        result = resource.get("UF")
+        result = resource.get("F073.UFF.PRE.Z.D")
         assert result["value"] == "39421.73"
+        assert result["title_es"] == "Unidad de fomento (UF)"
         assert route.called
         # No ``date`` query param should have been forwarded.
         request = route.calls.last.request
         assert "date" not in request.url.params
+
+    def test_get_dotted_series_id_path_not_mangled(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """Dotted BCCh ``series_id`` travels verbatim in the URL path.
+
+        ``urllib.parse.quote`` never percent-encodes ``.`` (unreserved),
+        so ``F073.UFF.PRE.Z.D`` must reach the server literally — this is
+        the canonical-handle contract (series_id in, ``title_es`` out).
+        """
+        route = respx_mock.get("/indicadores/F073.UFF.PRE.Z.D").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "series_id": "F073.UFF.PRE.Z.D",
+                    "title_es": "Unidad de fomento (UF)",
+                    "value": "39421.73",
+                },
+            )
+        )
+        resource = IndicadoresResource(sync_client)
+        result = resource.get("F073.UFF.PRE.Z.D")
+        assert route.called
+        assert result["series_id"] == "F073.UFF.PRE.Z.D"
+        assert result["title_es"]
+        # The dots must NOT be percent-encoded on the wire.
+        assert route.calls.last.request.url.path.endswith("/indicadores/F073.UFF.PRE.Z.D")
 
     def test_get_with_date_param(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
@@ -241,8 +270,9 @@ class TestIndicadoresHistory:
 
 
 _FORECAST_BODY = {
-    "name": "UF",
-    "source": "cmf_api_sbifv3",
+    "name": "F073.UFF.PRE.Z.D",
+    "title_es": "Unidad de fomento (UF)",
+    "source": "bcentral_api",
     "model": "timesfm-1.0-200m",
     "horizon": 6,
     "context_points": 1024,
@@ -467,72 +497,403 @@ class TestIndicadoresAsync:
 
 
 # ---------------------------------------------------------------------------
-# Literal-type expansion: BCentral series + IndicatorName union (P5.5)
+# Sync: IndicadoresResource.buscar (discovery over ~25k BCCh series)
 # ---------------------------------------------------------------------------
 
 
-class TestIndicatorNameLiterals:
-    """Verify the public Literal aliases keep their documented members.
-
-    The SDK methods accept ``str`` for ``name`` so the Literal types are
-    purely a typing convenience; these tests guard against accidental
-    membership regressions during future merges by inspecting the
-    runtime ``__args__`` tuple of the typing alias.
-    """
-
-    def test_sbif_indicator_name_membership(self) -> None:
-        # ``Literal[...]`` exposes its values as ``__args__``.
-        members = set(SbifIndicatorName.__args__)  # type: ignore[attr-defined]
-        assert members == {"UF", "UTM", "USD", "EUR", "IPC", "TMC"}
-
-    def test_bcentral_indicator_name_membership(self) -> None:
-        members = set(BCentralIndicatorName.__args__)  # type: ignore[attr-defined]
-        assert members == {"TPM", "IMACEC", "IMACEC_MIN", "IPC_BCH", "PIB"}
-
-    def test_indicator_name_is_union_of_both_sources(self) -> None:
-        members = set(IndicatorName.__args__)  # type: ignore[attr-defined]
-        sbif = set(SbifIndicatorName.__args__)  # type: ignore[attr-defined]
-        bcentral = set(BCentralIndicatorName.__args__)  # type: ignore[attr-defined]
-        assert members == sbif | bcentral
-
-    def test_get_accepts_bcentral_name(
+class TestIndicadoresBuscar:
+    def test_buscar_forwards_all_filter_params(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        """Smoke test: a BCentral series like ``TPM`` round-trips through
-        :meth:`IndicadoresResource.get` like any other indicator name.
+        route = respx_mock.get(
+            "/indicadores/buscar",
+            params={
+                "q": "cobre",
+                "frequency": "MONTHLY",
+                "family": "F019",
+                "limit": "20",
+                "offset": "0",
+            },
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "series_id": "F019.PPB.PRE.40.M",
+                            "title_es": "Precio del cobre refinado BML (dólares/libra)",
+                            "frequency": "MONTHLY",
+                            "source": "bcentral_api",
+                            "tracked": True,
+                            "has_forecast": True,
+                        }
+                    ],
+                    "total": 1,
+                },
+            )
+        )
+        resource = IndicadoresResource(sync_client)
+        results = resource.buscar(q="cobre", frequency="MONTHLY", family="F019", limit=20, offset=0)
+        assert isinstance(results, list)
+        assert len(results) == 1
+        assert results[0]["series_id"] == "F019.PPB.PRE.40.M"
+        assert results[0]["title_es"]
+        assert route.called
+
+    def test_buscar_no_params_omits_query_string(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """``buscar()`` with no args collapses ``params`` to ``None``."""
+        route = respx_mock.get("/indicadores/buscar").mock(
+            return_value=httpx.Response(200, json={"items": [], "total": 0})
+        )
+        resource = IndicadoresResource(sync_client)
+        resource.buscar()
+        assert route.called
+        request = route.calls.last.request
+        for param in ("q", "frequency", "family", "limit", "offset"):
+            assert param not in request.url.params
+
+    def test_buscar_unwraps_data_envelope(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """A ``{"data": [...]}`` envelope (SDK-documented shape) unwraps too."""
+        respx_mock.get("/indicadores/buscar", params={"q": "uf"}).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "series_id": "F073.UFF.PRE.Z.D",
+                            "title_es": "Unidad de fomento (UF)",
+                            "frequency": "DAILY",
+                            "source": "bcentral_api",
+                            "tracked": True,
+                            "has_forecast": True,
+                        }
+                    ]
+                },
+            )
+        )
+        resource = IndicadoresResource(sync_client)
+        results = resource.buscar(q="uf")
+        assert len(results) == 1
+        assert results[0]["series_id"] == "F073.UFF.PRE.Z.D"
+
+    def test_buscar_empty_returns_empty_list(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/indicadores/buscar", params={"q": "nomatch"}).mock(
+            return_value=httpx.Response(200, json={"items": [], "total": 0})
+        )
+        resource = IndicadoresResource(sync_client)
+        assert resource.buscar(q="nomatch") == []
+
+    def test_buscar_bare_list_response(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """A bare top-level JSON array is wrapped by ``_request`` as
+        ``{"data": [...]}`` and unwrapped again by ``_extract_items``.
         """
-        respx_mock.get("/indicadores/TPM").mock(
+        respx_mock.get("/indicadores/buscar", params={"family": "F073"}).mock(
             return_value=httpx.Response(
                 200,
-                json={
-                    "name": "TPM",
-                    "date": "2026-04-26",
-                    "value": "5.00",
-                    "unit": "pct_annualised",
-                    "source": "bcentral",
-                },
+                json=[
+                    {
+                        "series_id": "F073.UFF.PRE.Z.D",
+                        "title_es": "Unidad de fomento (UF)",
+                        "frequency": "DAILY",
+                        "source": "bcentral_api",
+                        "tracked": True,
+                        "has_forecast": True,
+                    }
+                ],
             )
         )
         resource = IndicadoresResource(sync_client)
-        out = resource.get("TPM")
-        assert out["name"] == "TPM"
-        assert out["source"] == "bcentral"
+        results = resource.buscar(family="F073")
+        assert results == [
+            {
+                "series_id": "F073.UFF.PRE.Z.D",
+                "title_es": "Unidad de fomento (UF)",
+                "frequency": "DAILY",
+                "source": "bcentral_api",
+                "tracked": True,
+                "has_forecast": True,
+            }
+        ]
 
-    def test_get_accepts_pib_quarterly(
+
+class TestIndicadoresList:
+    def test_list_unwraps_items_envelope(
         self, sync_client: CerberusClient, respx_mock: respx.MockRouter
     ) -> None:
-        respx_mock.get("/indicadores/PIB").mock(
+        route = respx_mock.get("/indicadores").mock(
             return_value=httpx.Response(
                 200,
                 json={
-                    "name": "PIB",
-                    "date": "2026-03-31",
-                    "value": "12345.67",
-                    "unit": "billions_clp_real",
-                    "source": "bcentral",
+                    "items": [
+                        {
+                            "name": "F073.UFF.PRE.Z.D",
+                            "title_es": "Unidad de fomento (UF)",
+                            "source": "bcentral_api",
+                            "frequency": "daily",
+                            "min_date": "1977-01-01",
+                            "max_date": "2026-06-26",
+                            "latest_value": "40133.5",
+                            "latest_date": "2026-06-26",
+                            "has_forecast": True,
+                        }
+                    ],
+                    "total": 1,
                 },
             )
         )
         resource = IndicadoresResource(sync_client)
-        out = resource.get("PIB")
-        assert out["value"] == "12345.67"
+        results = resource.list()
+        assert isinstance(results, list)
+        assert len(results) == 1
+        assert results[0]["name"] == "F073.UFF.PRE.Z.D"
+        assert results[0]["has_forecast"] is True
+        assert route.called
+        # The catalog endpoint takes no query params — none must be sent.
+        assert not dict(route.calls.last.request.url.params)
+
+    def test_list_empty_catalog_returns_empty_list(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get("/indicadores").mock(
+            return_value=httpx.Response(200, json={"items": [], "total": 0})
+        )
+        resource = IndicadoresResource(sync_client)
+        assert resource.list() == []
+
+
+class TestIndicadoresCompare:
+    _COMPARE_BODY: ClassVar[dict[str, Any]] = {
+        "series": [
+            {
+                "name": "F073.UFF.PRE.Z.D",
+                "source": "bcentral_api",
+                "title_es": "Unidad de fomento (UF)",
+                "items": [{"date": "2026-05-01", "value": "40133.5"}],
+            },
+            {
+                "name": "F074.IPC.IND.Z.2023.C.M",
+                "source": "bcentral_api",
+                "title_es": "IPC",
+                "items": [{"date": "2026-05-01", "value": "104.5"}],
+            },
+        ]
+    }
+
+    def test_compare_joins_series_ids_and_forwards_range(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/indicadores/compare",
+            params={
+                "names": "F073.UFF.PRE.Z.D,F074.IPC.IND.Z.2023.C.M",
+                "from": "2026-05-01",
+                "to": "2026-06-01",
+            },
+        ).mock(return_value=httpx.Response(200, json=self._COMPARE_BODY))
+        resource = IndicadoresResource(sync_client)
+        series = resource.compare(
+            ["F073.UFF.PRE.Z.D", "F074.IPC.IND.Z.2023.C.M"],
+            from_="2026-05-01",
+            to="2026-06-01",
+        )
+        assert [s["name"] for s in series] == [
+            "F073.UFF.PRE.Z.D",
+            "F074.IPC.IND.Z.2023.C.M",
+        ]
+        assert series[0]["items"] == [{"date": "2026-05-01", "value": "40133.5"}]
+        assert route.called
+
+    def test_compare_rejects_bare_string_series_ids(self, sync_client: CerberusClient) -> None:
+        """A bare ``str`` would be comma-joined char by char — hard error."""
+        resource = IndicadoresResource(sync_client)
+        with pytest.raises(ValueError, match="sequence of series_id strings"):
+            resource.compare(
+                "F073.UFF.PRE.Z.D",  # type: ignore[arg-type]
+                from_="2026-05-01",
+                to="2026-06-01",
+            )
+
+    def test_compare_rejects_non_iso_dates(self, sync_client: CerberusClient) -> None:
+        resource = IndicadoresResource(sync_client)
+        with pytest.raises(ValueError, match="YYYY-MM-DD"):
+            resource.compare(
+                ["F073.UFF.PRE.Z.D", "F074.IPC.IND.Z.2023.C.M"],
+                from_="2026/05/01",
+                to="2026-06-01",
+            )
+
+    def test_compare_422_raises_validation_error(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """Cardinality (2-6 series) is enforced server-side → 422."""
+        respx_mock.get(
+            "/indicadores/compare",
+            params={"names": "F073.UFF.PRE.Z.D", "from": "2026-05-01", "to": "2026-06-01"},
+        ).mock(
+            return_value=httpx.Response(
+                422,
+                json={
+                    "type": "about:blank",
+                    "title": "Validation error",
+                    "status": 422,
+                    "detail": "Provide between 2 and 6 comma-separated indicator names.",
+                },
+            )
+        )
+        resource = IndicadoresResource(sync_client)
+        with pytest.raises(ValidationError):
+            resource.compare(["F073.UFF.PRE.Z.D"], from_="2026-05-01", to="2026-06-01")
+
+    def test_compare_malformed_series_defensively_returns_empty(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        """Defensive: ``series: null`` (or missing) must not raise."""
+        respx_mock.get(
+            "/indicadores/compare",
+            params={
+                "names": "F073.UFF.PRE.Z.D,F074.IPC.IND.Z.2023.C.M",
+                "from": "2026-05-01",
+                "to": "2026-06-01",
+            },
+        ).mock(return_value=httpx.Response(200, json={"series": None}))
+        resource = IndicadoresResource(sync_client)
+        assert (
+            resource.compare(
+                ["F073.UFF.PRE.Z.D", "F074.IPC.IND.Z.2023.C.M"],
+                from_="2026-05-01",
+                to="2026-06-01",
+            )
+            == []
+        )
+
+
+class TestIndicadoresListCompareAsync:
+    async def test_list(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/indicadores").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "name": "F073.UFF.PRE.Z.D",
+                            "title_es": "Unidad de fomento (UF)",
+                            "source": "bcentral_api",
+                            "frequency": "daily",
+                            "has_forecast": True,
+                        }
+                    ],
+                    "total": 1,
+                },
+            )
+        )
+        resource = AsyncIndicadoresResource(async_client)
+        results = await resource.list()
+        assert len(results) == 1
+        assert results[0]["name"] == "F073.UFF.PRE.Z.D"
+        assert route.called
+
+    async def test_compare(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/indicadores/compare",
+            params={
+                "names": "F073.UFF.PRE.Z.D,F074.IPC.IND.Z.2023.C.M",
+                "from": "2026-05-01",
+                "to": "2026-06-01",
+            },
+        ).mock(return_value=httpx.Response(200, json=TestIndicadoresCompare._COMPARE_BODY))
+        resource = AsyncIndicadoresResource(async_client)
+        series = await resource.compare(
+            ["F073.UFF.PRE.Z.D", "F074.IPC.IND.Z.2023.C.M"],
+            from_="2026-05-01",
+            to="2026-06-01",
+        )
+        assert [s["name"] for s in series] == [
+            "F073.UFF.PRE.Z.D",
+            "F074.IPC.IND.Z.2023.C.M",
+        ]
+        assert route.called
+
+    async def test_compare_rejects_bare_string_series_ids(
+        self, async_client: AsyncCerberusClient
+    ) -> None:
+        resource = AsyncIndicadoresResource(async_client)
+        with pytest.raises(ValueError, match="sequence of series_id strings"):
+            await resource.compare(
+                "F073.UFF.PRE.Z.D",  # type: ignore[arg-type]
+                from_="2026-05-01",
+                to="2026-06-01",
+            )
+
+    async def test_compare_rejects_non_iso_dates(self, async_client: AsyncCerberusClient) -> None:
+        resource = AsyncIndicadoresResource(async_client)
+        with pytest.raises(ValueError, match="YYYY-MM-DD"):
+            await resource.compare(
+                ["F073.UFF.PRE.Z.D", "F074.IPC.IND.Z.2023.C.M"],
+                from_="2026-05-01",
+                to="bad",
+            )
+
+
+class TestIndicadoresBuscarAsync:
+    async def test_buscar_forwards_all_filter_params(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/indicadores/buscar",
+            params={
+                "q": "cobre",
+                "frequency": "MONTHLY",
+                "family": "F019",
+                "limit": "20",
+                "offset": "0",
+            },
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "series_id": "F019.PPB.PRE.40.M",
+                            "title_es": "Precio del cobre refinado BML (dólares/libra)",
+                            "frequency": "MONTHLY",
+                            "source": "bcentral_api",
+                            "tracked": True,
+                            "has_forecast": True,
+                        }
+                    ],
+                    "total": 1,
+                },
+            )
+        )
+        resource = AsyncIndicadoresResource(async_client)
+        results = await resource.buscar(
+            q="cobre", frequency="MONTHLY", family="F019", limit=20, offset=0
+        )
+        assert len(results) == 1
+        assert results[0]["series_id"] == "F019.PPB.PRE.40.M"
+        assert route.called
+
+    async def test_buscar_no_params_omits_query_string(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/indicadores/buscar").mock(
+            return_value=httpx.Response(200, json={"items": [], "total": 0})
+        )
+        resource = AsyncIndicadoresResource(async_client)
+        assert await resource.buscar() == []
+        assert route.called
+        request = route.calls.last.request
+        for param in ("q", "frequency", "family", "limit", "offset"):
+            assert param not in request.url.params

@@ -98,3 +98,45 @@ def test_resource_coverage_is_nonempty() -> None:
     assert len(drift.RESOURCE_COVERAGE) > 0, (
         "RESOURCE_COVERAGE is empty — did someone nuke the table?"
     )
+
+
+def test_deferred_coverage_disjoint_from_resource_coverage() -> None:
+    """A key in both tables means a stale DEFERRED entry — remove it.
+
+    ``DEFERRED_COVERAGE``'s contract is to shrink: once an endpoint gains
+    an SDK wrapper (a ``RESOURCE_COVERAGE`` entry) its deferred marker
+    must be deleted in the same PR, otherwise the report would count it
+    as covered while the deferred table lies about the backlog.
+    """
+    drift = _load_drift_module()
+    overlap = set(drift.RESOURCE_COVERAGE) & set(drift.DEFERRED_COVERAGE)
+    assert not overlap, f"stale DEFERRED_COVERAGE entries (already covered): {sorted(overlap)}"
+
+
+def test_compute_drift_classifies_deferred_without_tripping_drift() -> None:
+    """Deferred endpoints are reported but never counted as drift.
+
+    A live endpoint listed in ``DEFERRED_COVERAGE`` lands in the
+    ``deferred`` bucket (``has_drift`` stays ``False``), while a novel
+    endpoint absent from every table still trips ``has_drift`` — the
+    weekly cron must keep paging on *unannounced* API growth.
+    """
+    drift = _load_drift_module()
+    deferred_method, deferred_path = next(iter(sorted(drift.DEFERRED_COVERAGE)))
+
+    known = [drift.Endpoint(method=deferred_method, path=deferred_path)]
+    report = drift.compute_drift(known)
+    assert [e.key() for e in report.deferred] == [(deferred_method, deferred_path)]
+    assert not report.uncovered_api
+    # Every RESOURCE_COVERAGE entry is rotten here (empty live spec), so
+    # has_drift is True for that reason — check the uncovered axis alone
+    # by re-running with the full coverage keys present as live endpoints.
+    live = known + [drift.Endpoint(method=m, path=p) for (m, p) in drift.RESOURCE_COVERAGE]
+    report = drift.compute_drift(live)
+    assert not report.has_drift
+    assert report.to_json()["deferred"] == [[deferred_method, deferred_path]]
+
+    novel = [*live, drift.Endpoint(method="GET", path="/definitely-new-endpoint")]
+    report = drift.compute_drift(novel)
+    assert report.has_drift
+    assert [e.path for e in report.uncovered_api] == ["/definitely-new-endpoint"]
