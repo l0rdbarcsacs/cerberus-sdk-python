@@ -5,6 +5,29 @@ All notable changes to `cerberus-compliance` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.9.0] — 2026-07-04
+
+Cobertura de las superficies nuevas de la API: la deriva del SDK vuelve a **0
+uncovered / 0 rotten** contra producción (120 endpoints cubiertos).
+
+### Added
+
+- **`client.diario.list_normas`** / **`iter_all_normas`** — normas generales del
+  Cuerpo I del Diario Oficial (`GET /diario/normas`): leyes, decretos, DFL,
+  resoluciones exentas y reglamentos con sus facetas legales, filtrables por
+  `tipo` (`DiarioNormaTipo`), `desde`/`hasta`, `faceta` y `q`. Paginación offset.
+- **`client.equity.forecast`** — pronóstico TimesFM de precios por ticker
+  (`GET /equity/{ticker}/forecast`).
+- **`client.legal.search`** / **`iter_all`** — búsqueda sobre el corpus legal
+  consolidado de la BCN (`GET /legal/search`), paginada por cursor, con filtros
+  `q`, `facetas` y `estado`.
+- **`client.regulatory_impact.get`** — detalle de una evaluación de impacto
+  regulatorio por id (`GET /regulatory-impact/{impact_id}`).
+- **`client.regulatory_subscriptions.get` / `.update`** — perfil de suscripción
+  regulatoria de la organización (`GET`/`PUT /regulatory-subscriptions`).
+
+Todas las superficies con su gemelo asíncrono en `AsyncCerberusClient`.
+
 ## [v0.8.0] — 2026-06-30
 
 The canonical handle for `client.indicadores` is now the BCCh **`series_id`**

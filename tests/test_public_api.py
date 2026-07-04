@@ -10,6 +10,14 @@ from __future__ import annotations
 import cerberus_compliance
 
 EXPECTED_ALL = {
+    # v0.9.0 — nuevas superficies (diario normas, legal search, regulatory).
+    "AsyncLegalResource",
+    "LegalResource",
+    "AsyncRegulatoryImpactResource",
+    "RegulatoryImpactResource",
+    "AsyncRegulatorySubscriptionsResource",
+    "RegulatorySubscriptionsResource",
+    "DiarioNormaTipo",
     # v0.7.0 — 18 new typed resources + 4 extensions (54 endpoints)
     "AsyncBankingResource",
     "AsyncCopilotResource",
@@ -129,8 +137,8 @@ EXPECTED_ALL = {
 }
 
 
-def test_version_is_v0_8_0() -> None:
-    assert cerberus_compliance.__version__.startswith("0.8.0")
+def test_version_is_v0_9_0() -> None:
+    assert cerberus_compliance.__version__.startswith("0.9.0")
 
 
 def test_all_matches_expected_surface() -> None:

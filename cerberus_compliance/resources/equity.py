@@ -97,6 +97,17 @@ class EquityResource(BaseResource):
         path = f"{self._path_prefix}/{_encode_id(ticker)}/prices"
         return self._client._request("GET", path, params=_build_price_params(from_=from_, to=to))
 
+    def forecast(self, ticker: str) -> dict[str, Any]:
+        """Return the TimesFM price forecast for ``ticker`` (``GET /equity/{ticker}/forecast``).
+
+        Reads the precomputed forecast row (the model is off the request
+        path).  Args: *ticker* is percent-encoded so symbols with ``.``/``/``
+        round-trip.  Returns the forecast envelope (model, horizon, points
+        with calibrated intervals, ``computed_at``, disclaimer).
+        """
+        path = f"{self._path_prefix}/{_encode_id(ticker)}/forecast"
+        return self._client._request("GET", path)
+
 
 class AsyncEquityResource(AsyncBaseResource):
     """Async mirror of :class:`EquityResource`."""
@@ -118,3 +129,8 @@ class AsyncEquityResource(AsyncBaseResource):
         return await self._client._request(
             "GET", path, params=_build_price_params(from_=from_, to=to)
         )
+
+    async def forecast(self, ticker: str) -> dict[str, Any]:
+        """Async variant of :meth:`EquityResource.forecast`."""
+        path = f"{self._path_prefix}/{_encode_id(ticker)}/forecast"
+        return await self._client._request("GET", path)

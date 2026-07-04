@@ -238,3 +238,36 @@ class TestEquityAsync:
         assert route.called
         params = dict(route.calls.last.request.url.params.multi_items())
         assert params == {"from": "2024-01-01"}
+
+
+class TestEquityForecast:
+    """v0.9.0 — GET /equity/{ticker}/forecast."""
+
+    def test_forecast_sync(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
+        body = {"ticker": "FALABELLA", "model": "timesfm-2.5-200m", "horizon": 3, "points": []}
+        route = respx_mock.get("/equity/FALABELLA/forecast").mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        result = EquityResource(sync_client).forecast("FALABELLA")
+        assert result == body
+        assert route.called
+
+    def test_forecast_encodes_ticker(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/equity/A%2FB/forecast").mock(
+            return_value=httpx.Response(200, json={})
+        )
+        EquityResource(sync_client).forecast("A/B")
+        assert route.called
+
+    @pytest.mark.asyncio
+    async def test_forecast_async(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get("/equity/LTM/forecast").mock(
+            return_value=httpx.Response(200, json={"ticker": "LTM", "points": []})
+        )
+        result = await AsyncEquityResource(async_client).forecast("LTM")
+        assert result["ticker"] == "LTM"
+        assert route.called

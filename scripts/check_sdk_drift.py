@@ -192,6 +192,14 @@ RESOURCE_COVERAGE: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", "/hechos/event-types"): ("hechos", "hechos_event_type_distribution"),
     ("GET", "/hechos/bancos"): ("hechos", "list_hechos_bancos"),
     ("GET", "/hechos/otros"): ("hechos", "list_hechos_otros"),
+    # v0.9.0 — nuevas superficies (diario normas, equity forecast, corpus legal,
+    # impacto y suscripciones regulatorias).
+    ("GET", "/diario/normas"): ("diario", "list_normas"),
+    ("GET", "/equity/{ticker}/forecast"): ("equity", "forecast"),
+    ("GET", "/legal/search"): ("legal", "search"),
+    ("GET", "/regulatory-impact/{impact_id}"): ("regulatory_impact", "get"),
+    ("GET", "/regulatory-subscriptions"): ("regulatory_subscriptions", "get"),
+    ("PUT", "/regulatory-subscriptions"): ("regulatory_subscriptions", "update"),
     ("GET", "/indicadores/{series_id}/forecast"): ("indicadores", "forecast"),
     ("GET", "/insider/{rut_or_persona}/profile"): ("insider", "get_profile"),
     ("GET", "/ipsa/risk-panel"): ("ipsa", "risk_panel"),
@@ -277,10 +285,9 @@ DEFERRED_COVERAGE: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/copilot/conversations/{conversation_id}"),
         ("PATCH", "/copilot/conversations/{conversation_id}"),
         ("DELETE", "/copilot/conversations/{conversation_id}"),
-        ("GET", "/legal/search"),
-        ("GET", "/regulatory-impact/{impact_id}"),
-        ("GET", "/regulatory-subscriptions"),
-        ("PUT", "/regulatory-subscriptions"),
+        # legal/search, regulatory-impact y regulatory-subscriptions ya están
+        # cubiertos en 0.9.0 (client.legal / client.regulatory_impact /
+        # client.regulatory_subscriptions) — salieron de DEFERRED_COVERAGE.
     }
 )
 

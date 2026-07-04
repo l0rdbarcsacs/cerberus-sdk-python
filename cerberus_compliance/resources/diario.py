@@ -40,7 +40,54 @@ from cerberus_compliance.resources._base import AsyncBaseResource, BaseResource
 if TYPE_CHECKING:
     from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 
-__all__ = ["AsyncDiarioResource", "DiarioEventoTipo", "DiarioResource"]
+__all__ = [
+    "AsyncDiarioResource",
+    "DiarioEventoTipo",
+    "DiarioNormaTipo",
+    "DiarioResource",
+]
+
+#: Tipo de instrumento de una norma del Cuerpo I del Diario Oficial
+#: (``DoNormaTipo``). Un valor fuera del enum produce un **422**.
+DiarioNormaTipo = Literal[
+    "ley",
+    "decreto_supremo",
+    "dfl",
+    "decreto_ley",
+    "resolucion_exenta",
+    "reglamento",
+    "otro",
+]
+
+
+def _build_normas_params(
+    *,
+    tipo: DiarioNormaTipo | None,
+    desde: str | None,
+    hasta: str | None,
+    faceta: str | None,
+    q: str | None,
+    limit: int | None,
+    offset: int | None,
+) -> dict[str, Any] | None:
+    """Assemble the ``/diario/normas`` query dict, dropping ``None`` values."""
+    params: dict[str, Any] = {}
+    if tipo is not None:
+        params["tipo"] = tipo
+    if desde is not None:
+        params["desde"] = desde
+    if hasta is not None:
+        params["hasta"] = hasta
+    if faceta is not None:
+        params["faceta"] = faceta
+    if q is not None:
+        params["q"] = q
+    if limit is not None:
+        params["limit"] = limit
+    if offset is not None:
+        params["offset"] = offset
+    return params or None
+
 
 #: The ``DoEventoTipo`` StrEnum that classifies each *Diario Oficial*
 #: corporate-lifecycle event. Unlike the advisory taxonomies elsewhere in
@@ -197,6 +244,70 @@ class DiarioResource(BaseResource):
             if len(items) < page_size:
                 return
 
+    def list_normas(
+        self,
+        *,
+        tipo: DiarioNormaTipo | None = None,
+        desde: str | None = None,
+        hasta: str | None = None,
+        faceta: str | None = None,
+        q: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List general norms from the DO's Cuerpo I (``GET /diario/normas``).
+
+        Leyes, decretos, DFL, resoluciones exentas y reglamentos publicados en
+        la Sección Normas Generales, con sus facetas legales clasificadas.
+
+        Args:
+            tipo: One of :data:`DiarioNormaTipo`; out-of-enum yields **422**.
+            desde/hasta: ISO-8601 ``YYYY-MM-DD`` sobre ``fecha_publicacion``.
+            faceta: rama del derecho clasificada (solapamiento de facetas).
+            q: substring case-insensitive sobre el título.
+            limit: page size (1-100, default 20); offset: base-cero.
+
+        Returns:
+            ``{"items": [...], "total": int, "limit": int, "offset": int}``.
+        """
+        params = _build_normas_params(
+            tipo=tipo, desde=desde, hasta=hasta, faceta=faceta, q=q, limit=limit, offset=offset
+        )
+        return self._client._request("GET", f"{self._path_prefix}/normas", params=params)
+
+    def iter_all_normas(
+        self,
+        *,
+        tipo: DiarioNormaTipo | None = None,
+        desde: str | None = None,
+        hasta: str | None = None,
+        faceta: str | None = None,
+        q: str | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Yield every norm across all pages of ``GET /diario/normas``."""
+        page_size = 100
+        offset = 0
+        while True:
+            body = self.list_normas(
+                tipo=tipo,
+                desde=desde,
+                hasta=hasta,
+                faceta=faceta,
+                q=q,
+                limit=page_size,
+                offset=offset,
+            )
+            items = self._extract_items(body)
+            if not items:
+                return
+            yield from items
+            offset += len(items)
+            total = body.get("total")
+            if isinstance(total, int) and offset >= total:
+                return
+            if len(items) < page_size:
+                return
+
 
 class AsyncDiarioResource(AsyncBaseResource):
     """Asynchronous mirror of :class:`DiarioResource`.
@@ -256,6 +367,57 @@ class AsyncDiarioResource(AsyncBaseResource):
                 hasta=hasta,
                 q=q,
                 entity_id=entity_id,
+                limit=page_size,
+                offset=offset,
+            )
+            items = self._extract_items(body)
+            if not items:
+                return
+            for item in items:
+                yield item
+            offset += len(items)
+            total = body.get("total")
+            if isinstance(total, int) and offset >= total:
+                return
+            if len(items) < page_size:
+                return
+
+    async def list_normas(
+        self,
+        *,
+        tipo: DiarioNormaTipo | None = None,
+        desde: str | None = None,
+        hasta: str | None = None,
+        faceta: str | None = None,
+        q: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Async variant of :meth:`DiarioResource.list_normas`."""
+        params = _build_normas_params(
+            tipo=tipo, desde=desde, hasta=hasta, faceta=faceta, q=q, limit=limit, offset=offset
+        )
+        return await self._client._request("GET", f"{self._path_prefix}/normas", params=params)
+
+    async def iter_all_normas(
+        self,
+        *,
+        tipo: DiarioNormaTipo | None = None,
+        desde: str | None = None,
+        hasta: str | None = None,
+        faceta: str | None = None,
+        q: str | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Async variant of :meth:`DiarioResource.iter_all_normas`."""
+        page_size = 100
+        offset = 0
+        while True:
+            body = await self.list_normas(
+                tipo=tipo,
+                desde=desde,
+                hasta=hasta,
+                faceta=faceta,
+                q=q,
                 limit=page_size,
                 offset=offset,
             )

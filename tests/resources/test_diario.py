@@ -315,3 +315,55 @@ class TestDiarioAsync:
         resource = AsyncDiarioResource(async_client)
         with pytest.raises(CerberusAPIError):
             await resource.list_eventos()
+
+
+class TestDiarioNormasSync:
+    """v0.9.0 — GET /diario/normas."""
+
+    def test_list_normas(self, sync_client: CerberusClient, respx_mock: respx.MockRouter) -> None:
+        body = {"items": [{"numero": "21719", "tipo": "ley"}], "total": 1, "limit": 20, "offset": 0}
+        route = respx_mock.get("/diario/normas").mock(return_value=httpx.Response(200, json=body))
+        result = DiarioResource(sync_client).list_normas()
+        assert result == body
+        assert route.called
+
+    def test_list_normas_filters(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(
+            "/diario/normas",
+            params={
+                "tipo": "ley",
+                "faceta": "proteccion_datos",
+                "desde": "2024-01-01",
+                "limit": "5",
+            },
+        ).mock(return_value=httpx.Response(200, json={"items": [], "total": 0}))
+        DiarioResource(sync_client).list_normas(
+            tipo="ley", faceta="proteccion_datos", desde="2024-01-01", limit=5
+        )
+        assert route.called
+
+    def test_iter_all_normas(
+        self, sync_client: CerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        # Paginación offset (page_size=100): las 2 normas caben en una página y el
+        # iterador se detiene (empty page en offset=2 no es necesario porque
+        # len(items) < page_size ya cierra).
+        page = {"items": [{"numero": "1"}, {"numero": "2"}], "total": 2, "limit": 100, "offset": 0}
+        route = respx_mock.get("/diario/normas").mock(return_value=httpx.Response(200, json=page))
+        got = [n["numero"] for n in DiarioResource(sync_client).iter_all_normas()]
+        assert got == ["1", "2"]
+        assert route.call_count == 1
+
+
+class TestDiarioNormasAsync:
+    @pytest.mark.asyncio
+    async def test_list_normas(
+        self, async_client: AsyncCerberusClient, respx_mock: respx.MockRouter
+    ) -> None:
+        body = {"items": [{"numero": "21719"}], "total": 1, "limit": 20, "offset": 0}
+        route = respx_mock.get("/diario/normas").mock(return_value=httpx.Response(200, json=body))
+        result = await AsyncDiarioResource(async_client).list_normas(tipo="decreto_supremo")
+        assert result == body
+        assert route.called

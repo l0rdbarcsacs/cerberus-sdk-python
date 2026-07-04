@@ -1,6 +1,6 @@
 """Official Python SDK for the Cerberus Compliance API (Chile RegTech)."""
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 from cerberus_compliance.client import AsyncCerberusClient, CerberusClient
 from cerberus_compliance.errors import (
@@ -36,6 +36,7 @@ from cerberus_compliance.resources.copilot import (
 from cerberus_compliance.resources.diario import (
     AsyncDiarioResource,
     DiarioEventoTipo,
+    DiarioNormaTipo,
     DiarioResource,
 )
 from cerberus_compliance.resources.dictamenes import (
@@ -92,6 +93,10 @@ from cerberus_compliance.resources.kyb import (
     AsyncKYBResource,
     KYBResource,
 )
+from cerberus_compliance.resources.legal import (
+    AsyncLegalResource,
+    LegalResource,
+)
 from cerberus_compliance.resources.normativa import (
     AsyncNormativaResource,
     NormativaResource,
@@ -128,6 +133,14 @@ from cerberus_compliance.resources.regulations import (
     AsyncRegulationsResource,
     RegulationsResource,
     RegulationType,
+)
+from cerberus_compliance.resources.regulatory_impact import (
+    AsyncRegulatoryImpactResource,
+    RegulatoryImpactResource,
+)
+from cerberus_compliance.resources.regulatory_subscriptions import (
+    AsyncRegulatorySubscriptionsResource,
+    RegulatorySubscriptionsResource,
 )
 from cerberus_compliance.resources.rentas import (
     AsyncRentasResource,
@@ -212,6 +225,7 @@ __all__ = [
     "AsyncIndicadoresResource",
     "AsyncInsiderResource",
     "AsyncKYBResource",
+    "AsyncLegalResource",
     "AsyncNormativaConsultaResource",
     "AsyncNormativaHistoricResource",
     "AsyncNormativaResource",
@@ -222,6 +236,8 @@ __all__ = [
     "AsyncRPSFResource",
     "AsyncRatingsResource",
     "AsyncRegulationsResource",
+    "AsyncRegulatoryImpactResource",
+    "AsyncRegulatorySubscriptionsResource",
     "AsyncRentasResource",
     "AsyncResolucionesResource",
     "AsyncResolveResource",
@@ -242,6 +258,7 @@ __all__ = [
     "CopilotResource",
     "CopilotStreamEvent",
     "DiarioEventoTipo",
+    "DiarioNormaTipo",
     "DiarioResource",
     "DictamenesResource",
     "ESGRankingDirection",
@@ -261,6 +278,7 @@ __all__ = [
     "InsiderResource",
     "InsiderSubjectType",
     "KYBResource",
+    "LegalResource",
     "NormativaConsultaEstado",
     "NormativaConsultaResource",
     "NormativaHistoricResource",
@@ -278,6 +296,8 @@ __all__ = [
     "RatingsResource",
     "RegulationType",
     "RegulationsResource",
+    "RegulatoryImpactResource",
+    "RegulatorySubscriptionsResource",
     "RentasResource",
     "ResolucionesResource",
     "ResolveResource",

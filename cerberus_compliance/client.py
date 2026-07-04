@@ -101,6 +101,10 @@ from cerberus_compliance.resources.kyb import (
     AsyncKYBResource,
     KYBResource,
 )
+from cerberus_compliance.resources.legal import (
+    AsyncLegalResource,
+    LegalResource,
+)
 from cerberus_compliance.resources.lei import AsyncLeiResource, LeiResource
 from cerberus_compliance.resources.normativa import (
     AsyncNormativaResource,
@@ -134,6 +138,14 @@ from cerberus_compliance.resources.ratings import (
 from cerberus_compliance.resources.regulations import (
     AsyncRegulationsResource,
     RegulationsResource,
+)
+from cerberus_compliance.resources.regulatory_impact import (
+    AsyncRegulatoryImpactResource,
+    RegulatoryImpactResource,
+)
+from cerberus_compliance.resources.regulatory_subscriptions import (
+    AsyncRegulatorySubscriptionsResource,
+    RegulatorySubscriptionsResource,
 )
 from cerberus_compliance.resources.rentas import (
     AsyncRentasResource,
@@ -350,6 +362,9 @@ class CerberusClient:
         self.banking = BankingResource(self)
         self.copilot = CopilotResource(self)
         self.diario = DiarioResource(self)
+        self.legal = LegalResource(self)
+        self.regulatory_impact = RegulatoryImpactResource(self)
+        self.regulatory_subscriptions = RegulatorySubscriptionsResource(self)
         self.financials = FinancialsResource(self)
         self.fondos = FondosResource(self)
         self.graph = GraphResource(self)
@@ -563,6 +578,9 @@ class AsyncCerberusClient:
         self.banking = AsyncBankingResource(self)
         self.copilot = AsyncCopilotResource(self)
         self.diario = AsyncDiarioResource(self)
+        self.legal = AsyncLegalResource(self)
+        self.regulatory_impact = AsyncRegulatoryImpactResource(self)
+        self.regulatory_subscriptions = AsyncRegulatorySubscriptionsResource(self)
         self.financials = AsyncFinancialsResource(self)
         self.fondos = AsyncFondosResource(self)
         self.graph = AsyncGraphResource(self)
