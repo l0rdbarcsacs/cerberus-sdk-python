@@ -4,7 +4,7 @@ SDK oficial de Python para la API de Cerberus Compliance — inteligencia de cum
 
 [![PyPI](https://img.shields.io/pypi/v/cerberus-compliance.svg)](https://pypi.org/project/cerberus-compliance/)
 [![Python](https://img.shields.io/pypi/pyversions/cerberus-compliance.svg)](https://pypi.org/project/cerberus-compliance/)
-[![CI](https://github.com/l0rdbarcsacs/cerberus-sdk-python/actions/workflows/ci.yml/badge.svg)](https://github.com/l0rdbarcsacs/cerberus-sdk-python/actions/workflows/ci.yml)
+[![CI](https://github.com/Cerberus-Soluciones/cerberus-sdk-python/actions/workflows/ci.yml/badge.svg)](https://github.com/Cerberus-Soluciones/cerberus-sdk-python/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -38,7 +38,7 @@ Los mismos datos están disponibles por tres canales sobre **una sola API de pro
 |---|---|---|---|
 | **Plataforma web (Explorer)** | `https://compliance.cerberus.cl/explorer` | Cuenta de usuario (inicio de sesión único con Google o GitHub en `/login`). Sin clave API; el acceso se asocia a su cuenta. | Equipos de cumplimiento, riesgo y negocio que desean explorar los datos de forma visual, sin escribir código. |
 | **API REST** | `https://compliance.cerberus.cl/v1` | Clave API por cabecera Bearer: `Authorization: Bearer ck_live_<su-clave>` (entorno live o test). | Equipos de ingeniería que integran la inteligencia de cumplimiento en sistemas propios desde cualquier lenguaje, mediante HTTP estándar y la especificación OpenAPI publicada. |
-| **SDK de Python (`cerberus-compliance`)** | Paquete PyPI `cerberus-compliance` (repositorio en GitHub: `https://github.com/l0rdbarcsacs/cerberus-sdk-python`); apunta a `https://compliance.cerberus.cl/v1`. | La misma clave API Bearer `ck_live_...` que la API REST; configúrela mediante la variable de entorno `CERBERUS_API_KEY` o al instanciar el cliente. | Equipos de desarrollo en Python que prefieren un cliente tipado (con `py.typed` y modelos Pydantic v2) sobre la misma API REST. |
+| **SDK de Python (`cerberus-compliance`)** | Paquete PyPI `cerberus-compliance` (repositorio en GitHub: `https://github.com/Cerberus-Soluciones/cerberus-sdk-python`); apunta a `https://compliance.cerberus.cl/v1`. | La misma clave API Bearer `ck_live_...` que la API REST; configúrela mediante la variable de entorno `CERBERUS_API_KEY` o al instanciar el cliente. | Equipos de desarrollo en Python que prefieren un cliente tipado (con `py.typed` y modelos Pydantic v2) sobre la misma API REST. |
 
 **Este SDK es el cliente de Python sobre esa misma API REST.** Lo que obtenga por el SDK es exactamente lo que obtendría por HTTP directo o lo que vería en el Explorer.
 
@@ -562,7 +562,7 @@ El repositorio incluye ejemplos ejecutables en `examples/`:
 ## Contribuir
 
 ```bash
-git clone https://github.com/l0rdbarcsacs/cerberus-sdk-python.git
+git clone https://github.com/Cerberus-Soluciones/cerberus-sdk-python.git
 cd cerberus-sdk-python
 pip install -e ".[dev]"
 
@@ -576,11 +576,11 @@ ruff check .    # estilo y linting
 ## Enlaces
 
 - **PyPI**: https://pypi.org/project/cerberus-compliance/
-- **Repositorio**: https://github.com/l0rdbarcsacs/cerberus-sdk-python
+- **Repositorio**: https://github.com/Cerberus-Soluciones/cerberus-sdk-python
 - **Plataforma (Explorer)**: https://compliance.cerberus.cl/explorer
 - **Documentación OpenAPI**: https://compliance.cerberus.cl/docs
 - **Portal de desarrolladores**: https://developers.cerberus.cl
-- **CHANGELOG**: https://github.com/l0rdbarcsacs/cerberus-sdk-python/blob/main/CHANGELOG.md
+- **CHANGELOG**: https://github.com/Cerberus-Soluciones/cerberus-sdk-python/blob/main/CHANGELOG.md
 
 ---
 

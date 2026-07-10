@@ -66,11 +66,11 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/l0rdbarcsacs/cerberus-sdk-python"
-Documentation = "https://github.com/l0rdbarcsacs/cerberus-sdk-python#readme"
-Repository = "https://github.com/l0rdbarcsacs/cerberus-sdk-python"
-Issues = "https://github.com/l0rdbarcsacs/cerberus-sdk-python/issues"
-Changelog = "https://github.com/l0rdbarcsacs/cerberus-sdk-python/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Cerberus-Soluciones/cerberus-sdk-python"
+Documentation = "https://github.com/Cerberus-Soluciones/cerberus-sdk-python#readme"
+Repository = "https://github.com/Cerberus-Soluciones/cerberus-sdk-python"
+Issues = "https://github.com/Cerberus-Soluciones/cerberus-sdk-python/issues"
+Changelog = "https://github.com/Cerberus-Soluciones/cerberus-sdk-python/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["cerberus_compliance"]
